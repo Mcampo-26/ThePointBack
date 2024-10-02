@@ -1,10 +1,9 @@
 import express from 'express';
 import cors from 'cors';
-import routerPagos from './src/Routes/Pagos/index.js'; 
+import routerPagos from './src/Routes/Pagos/index.js';
 import routerProductos from './src/Routes/Productos/index.js';
 import morgan from 'morgan';
 import { dbConnect } from './src/database/config.js';
-import helmet from 'helmet';
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -15,22 +14,14 @@ app.use(express.urlencoded({ extended: true }));
 
 // Configuración de CORS
 app.use(cors({
-  origin: [ 'https://thepoint.netlify.app/'], // Actualiza la URL de ngrok si cambia
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], 
-  allowedHeaders: ['Content-Type', 'Authorization'], 
-  credentials: true, 
+  origin: ['https://thepoint.netlify.app'], // Permite solicitudes desde el dominio de tu frontend
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'], // Permite estos encabezados
+  credentials: true, // Permitir envío de cookies o autenticación basada en tokens
 }));
 
-app.use(
-  helmet.contentSecurityPolicy({
-    directives: {
-      defaultSrc: ["'self'"],
-      imgSrc: ["'self'", "https://thepointback-03939a97aeeb.herokuapp.com"],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'"],
-    },
-  })
-);
+// Middleware para manejar solicitudes preflight (OPTIONS)
+app.options('*', cors());
 
 app.use(morgan('dev'));
 
