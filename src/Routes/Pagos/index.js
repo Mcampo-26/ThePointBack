@@ -10,7 +10,7 @@ const router = express.Router();
 
 router.post('/create_payment_link', createPaymentLink);
 router.post('/save_payment_details', savePaymentDetails);
-router.post('/Pagos/webhook', receiveWebhook);  
+router.post('/webhook', receiveWebhook);  // Ajusta la ruta para el webhook
 
 
 export default router;
