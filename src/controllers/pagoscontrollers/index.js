@@ -34,6 +34,7 @@ export const createPaymentLink = async (req, res) => {
     },
     auto_return: 'approved',
   };
+  console.log('URL de éxito:', `${process.env.URL.trim()}/payment-result/success`);
 
   try {
     // Hacer solicitud a la API de Mercado Pago
