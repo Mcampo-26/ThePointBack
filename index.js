@@ -4,6 +4,7 @@ import routerPagos from './src/Routes/Pagos/index.js';
 import routerProductos from './src/Routes/Productos/index.js';
 import morgan from 'morgan';
 import { dbConnect } from './src/database/config.js';
+import helmet from 'helmet';
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -19,6 +20,17 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'], 
   credentials: true, 
 }));
+
+app.use(
+  helmet.contentSecurityPolicy({
+    directives: {
+      defaultSrc: ["'self'"],
+      imgSrc: ["'self'", "https://thepointback-03939a97aeeb.herokuapp.com"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'"],
+    },
+  })
+);
 
 app.use(morgan('dev'));
 
