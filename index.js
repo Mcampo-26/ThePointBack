@@ -15,7 +15,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Configuración de CORS
 app.use(cors({
-  origin: ['http://localhost:5173', 'https://ce25-181-97-187-173.ngrok-free.app'], // Actualiza la URL de ngrok si cambia
+  origin: ['*'], // Actualiza la URL de ngrok si cambia
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], 
   allowedHeaders: ['Content-Type', 'Authorization'], 
   credentials: true, 
