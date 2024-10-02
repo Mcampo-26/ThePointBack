@@ -20,6 +20,14 @@ app.use(cors({
   credentials: true, 
 }));
 
+app.use((req, res, next) => {
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'self'; img-src 'self' https://thepointback-03939a97aeeb.herokuapp.com; script-src 'self'; style-src 'self';"
+  );
+  next();
+});
+
 app.use(morgan('dev'));
 
 // Montar rutas
