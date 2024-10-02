@@ -28,9 +28,9 @@ export const createPaymentLink = async (req, res) => {
       email: 'test_user_123456@test.com', // Cambiar por el correo del usuario
     },
     back_urls: {
-      success: `${process.env.NGROK_URL}/payment-result/success`,  // Usa la URL correcta desde el .env
-      failure: `${process.env.NGROK_URL}/payment-result/failure`,
-      pending: `${process.env.NGROK_URL}/payment-result/pending`,
+      success: `${process.env.URL}/payment-result/success`,  // Usa la URL correcta desde el .env
+      failure: `${process.env.URL}/payment-result/failure`,
+      pending: `${process.env.URL}/payment-result/pending`,
     },
     auto_return: 'approved',
   };
