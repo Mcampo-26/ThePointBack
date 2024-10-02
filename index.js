@@ -15,7 +15,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Configuración de CORS
 app.use(cors({
-  origin: ['*'], // Actualiza la URL de ngrok si cambia
+  origin: [ 'https://thepoint.netlify.app/'], // Actualiza la URL de ngrok si cambia
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], 
   allowedHeaders: ['Content-Type', 'Authorization'], 
   credentials: true, 
