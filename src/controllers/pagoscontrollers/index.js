@@ -96,7 +96,9 @@ export const savePaymentDetails = async (req, res) => {
 
 
 
-export const receiveWebhook = async (req, res, io) => {
+export const receiveWebhook = async (req, res) => {
+  const io = req.app.locals.io; // Obtener el objeto `io` desde `app.locals`
+
   console.log('Webhook recibido:', req.body);
 
   try {
@@ -123,9 +125,6 @@ export const receiveWebhook = async (req, res, io) => {
           paymentId: paymentDetails.data.id,
           amount: paymentDetails.data.transaction_amount, // Puedes enviar más detalles si es necesario
         });
-
-        // También puedes filtrar por cliente específico si sabes el `socket.id` de la tablet que generó el QR
-        // socket.emit('paymentSuccess', { status: 'approved', paymentId: paymentDetails.data.id });
       }
 
       // Responder a Mercado Pago que el webhook fue procesado correctamente
