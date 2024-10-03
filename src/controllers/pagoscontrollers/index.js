@@ -27,11 +27,7 @@ export const createPaymentLink = async (req, res) => {
     payer: {
       email: 'test_user_123456@test.com', // Cambiar por el correo del usuario
     },
-    back_urls: {
-      success: `${process.env.URL.trim()}/payment-result/success`,  // Usa la URL correcta desde el .env
-      failure: `${process.env.URL.trim()}/payment-result/failure`,
-      pending: `${process.env.URL.trim()}/payment-result/pending`,
-    },
+    
      notification_url: `${process.env.BACKEND_URL}/Pagos/webhook`,
     auto_return: 'approved',
   };
@@ -98,7 +94,7 @@ export const savePaymentDetails = async (req, res) => {
 
 
 export const receiveWebhook = async (req, res) => {
-  console.log('Webhook recibido:', req.body);
+  console.log('Webhook recibido:', req.body); // Asegúrate de ver este mensaje en tu consola cuando Mercado Pago envía el webhook
 
   try {
     const { type, data } = req.body;
@@ -107,32 +103,21 @@ export const receiveWebhook = async (req, res) => {
       const paymentId = data.id;
       console.log('ID del pago recibido:', paymentId);
 
-      // Obtener detalles del pago desde Mercado Pago
-      const paymentDetails = await axios.get(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-        headers: {
-          Authorization: `Bearer ${MERCADOPAGO_API_KEY}`,
-        },
-      });
+      // Aquí puedes emitir el evento por WebSocket a la tablet
+      io.emit('paymentSuccess', { status: 'approved', paymentId }); // Emitir el evento a todos los clientes conectados
 
-      // Verificar si el pago fue aprobado
-      if (paymentDetails.data.status === 'approved') {
-        console.log('Pago aprobado:', paymentDetails.data);
-
-        // Aquí puedes guardar el pago en la base de datos, o notificar al frontend
-        // usando WebSockets, por ejemplo.
-      }
-
-      // Responder a Mercado Pago que el webhook fue procesado correctamente
+      // Responde a Mercado Pago que el webhook fue recibido
       res.sendStatus(200);
     } else {
       console.log('Tipo de evento desconocido:', type);
-      res.sendStatus(200); // Responde 200 incluso si el tipo de evento no es "payment"
+      res.sendStatus(200);
     }
   } catch (error) {
     console.error('Error procesando el webhook:', error);
     res.status(500).json({ message: 'Error al procesar el webhook' });
   }
 };
+
 
 
 
