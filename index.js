@@ -7,7 +7,7 @@ const app = express();
 const server = http.createServer(app); // Crear servidor HTTP
 const io = new Server(server, {
   cors: {
-    origin: [ 'https://thepoint.netlify.app/'], // Reemplaza con la URL de tu frontend
+    origin: [ 'https://thepoint.netlify.app'], // Reemplaza con la URL de tu frontend
     methods: ['GET', 'POST'],
   },
 });
