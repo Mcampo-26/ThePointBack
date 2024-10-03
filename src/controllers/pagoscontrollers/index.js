@@ -99,6 +99,11 @@ export const savePaymentDetails = async (req, res) => {
 export const receiveWebhook = async (req, res) => {
   const io = req.app.locals.io; // Obtener el objeto `io` desde `app.locals`
 
+  if (!io) {
+    console.error('Error: io no está definido en el contexto del servidor');
+    return res.status(500).json({ message: 'Error: io no está definido' });
+  }
+
   console.log('Webhook recibido:', req.body);
 
   try {
@@ -119,17 +124,12 @@ export const receiveWebhook = async (req, res) => {
       if (paymentDetails.data.status === 'approved') {
         console.log('Pago aprobado:', paymentDetails.data);
 
-        // Verificar si `io` está definido antes de emitir el evento
-        if (io) {
-          io.emit('paymentSuccess', {
-            status: 'approved',
-            paymentId: paymentDetails.data.id,
-            amount: paymentDetails.data.transaction_amount, // Puedes enviar más detalles si es necesario
-          });
-          console.log('Evento paymentSuccess emitido');
-        } else {
-          console.error('Error: io no está definido');
-        }
+        // Emitir un evento a través de WebSockets a todos los clientes conectados
+        io.emit('paymentSuccess', {
+          status: 'approved',
+          paymentId: paymentDetails.data.id,
+          amount: paymentDetails.data.transaction_amount, // Puedes enviar más detalles si es necesario
+        });
       }
 
       // Responder a Mercado Pago que el webhook fue procesado correctamente
@@ -143,6 +143,7 @@ export const receiveWebhook = async (req, res) => {
     res.status(500).json({ message: 'Error al procesar el webhook' });
   }
 };
+
 
 
 
