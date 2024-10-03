@@ -92,9 +92,11 @@ export const savePaymentDetails = async (req, res) => {
 
 
 
+import axios from 'axios'; // Asegúrate de importar axios
+import { MERCADOPAGO_API_KEY } from '../../Config/index.js'; // Asegúrate de que tu clave esté bien configurada
 
-export const receiveWebhook = async (req, res) => {
-  console.log('Webhook recibido:', req.body); // Asegúrate de ver este mensaje en tu consola cuando Mercado Pago envía el webhook
+export const receiveWebhook = async (req, res, io) => {
+  console.log('Webhook recibido:', req.body);
 
   try {
     const { type, data } = req.body;
@@ -103,14 +105,33 @@ export const receiveWebhook = async (req, res) => {
       const paymentId = data.id;
       console.log('ID del pago recibido:', paymentId);
 
-      // Aquí puedes emitir el evento por WebSocket a la tablet
-      io.emit('paymentSuccess', { status: 'approved', paymentId }); // Emitir el evento a todos los clientes conectados
+      // Obtener detalles del pago desde Mercado Pago
+      const paymentDetails = await axios.get(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+        headers: {
+          Authorization: `Bearer ${MERCADOPAGO_API_KEY}`,
+        },
+      });
 
-      // Responde a Mercado Pago que el webhook fue recibido
+      // Verificar si el pago fue aprobado
+      if (paymentDetails.data.status === 'approved') {
+        console.log('Pago aprobado:', paymentDetails.data);
+
+        // Emitir un evento a través de WebSockets a todos los clientes conectados
+        io.emit('paymentSuccess', {
+          status: 'approved',
+          paymentId: paymentDetails.data.id,
+          amount: paymentDetails.data.transaction_amount, // Puedes enviar más detalles si es necesario
+        });
+
+        // También puedes filtrar por cliente específico si sabes el `socket.id` de la tablet que generó el QR
+        // socket.emit('paymentSuccess', { status: 'approved', paymentId: paymentDetails.data.id });
+      }
+
+      // Responder a Mercado Pago que el webhook fue procesado correctamente
       res.sendStatus(200);
     } else {
       console.log('Tipo de evento desconocido:', type);
-      res.sendStatus(200);
+      res.sendStatus(200); // Responde 200 incluso si el tipo de evento no es "payment"
     }
   } catch (error) {
     console.error('Error procesando el webhook:', error);
