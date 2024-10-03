@@ -91,10 +91,6 @@ export const savePaymentDetails = async (req, res) => {
 
 
 
-
-import axios from 'axios'; // Asegúrate de importar axios
-import { MERCADOPAGO_API_KEY } from '../../Config/index.js'; // Asegúrate de que tu clave esté bien configurada
-
 export const receiveWebhook = async (req, res, io) => {
   console.log('Webhook recibido:', req.body);
 
