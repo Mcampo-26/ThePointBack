@@ -32,6 +32,7 @@ export const createPaymentLink = async (req, res) => {
       failure: `${process.env.URL.trim()}/payment-result/failure`,
       pending: `${process.env.URL.trim()}/payment-result/pending`,
     },
+     notification_url: `${process.env.BACKEND_URL}/Pagos/webhook`,
     auto_return: 'approved',
   };
   console.log('URL de éxito:', `${process.env.URL.trim()}/payment-result/success`);
@@ -97,7 +98,7 @@ export const savePaymentDetails = async (req, res) => {
 
 
 export const receiveWebhook = async (req, res) => {
-  console.log('Webhook recibido:', req.body); // Log para ver los datos que llegan en el webhook
+  console.log('Webhook recibido:', req.body);
 
   try {
     const { type, data } = req.body;
@@ -106,18 +107,32 @@ export const receiveWebhook = async (req, res) => {
       const paymentId = data.id;
       console.log('ID del pago recibido:', paymentId);
 
-      // Puedes agregar más lógica aquí para manejar el pago
+      // Obtener detalles del pago desde Mercado Pago
+      const paymentDetails = await axios.get(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+        headers: {
+          Authorization: `Bearer ${MERCADOPAGO_API_KEY}`,
+        },
+      });
 
-      // Responde a Mercado Pago que el webhook fue recibido
+      // Verificar si el pago fue aprobado
+      if (paymentDetails.data.status === 'approved') {
+        console.log('Pago aprobado:', paymentDetails.data);
+
+        // Aquí puedes guardar el pago en la base de datos, o notificar al frontend
+        // usando WebSockets, por ejemplo.
+      }
+
+      // Responder a Mercado Pago que el webhook fue procesado correctamente
       res.sendStatus(200);
     } else {
       console.log('Tipo de evento desconocido:', type);
-      res.sendStatus(200);
+      res.sendStatus(200); // Responde 200 incluso si el tipo de evento no es "payment"
     }
   } catch (error) {
     console.error('Error procesando el webhook:', error);
     res.status(500).json({ message: 'Error al procesar el webhook' });
   }
 };
+
 
 
