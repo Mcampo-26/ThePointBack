@@ -4,7 +4,6 @@ import { MERCADOPAGO_API_KEY } from '../../Config/index.js';
 
 
 
-
 // Método para guardar los detalles de pago y generar el QR con el enlace directo
 export const createPaymentLink = async (req, res) => {
   const { title, price } = req.body;
@@ -27,10 +26,15 @@ export const createPaymentLink = async (req, res) => {
     payer: {
       email: 'test_user_123456@test.com', // Cambiar por el correo del usuario
     },
-    
-     notification_url: `${process.env.BACKEND_URL}/Pagos/webhook`,
-    auto_return: 'approved',
+    back_urls: {
+      success: `${process.env.URL.trim()}/payment-result/success`, // Asegúrate de tener la URL correcta en tu entorno
+      failure: `${process.env.URL.trim()}/payment-result/failure`,
+      pending: `${process.env.URL.trim()}/payment-result/pending`,
+    },
+    notification_url: `${process.env.BACKEND_URL}/Pagos/webhook`,
+    auto_return: 'approved', // Configura el retorno automático cuando el pago sea aprobado
   };
+
   console.log('URL de éxito:', `${process.env.URL.trim()}/payment-result/success`);
 
   try {
@@ -54,6 +58,7 @@ export const createPaymentLink = async (req, res) => {
     });
   }
 };
+
 
 export const savePaymentDetails = async (req, res) => {
   const { userId, amount,  items } = req.body;
