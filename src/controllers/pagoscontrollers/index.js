@@ -119,12 +119,17 @@ export const receiveWebhook = async (req, res) => {
       if (paymentDetails.data.status === 'approved') {
         console.log('Pago aprobado:', paymentDetails.data);
 
-        // Emitir un evento a través de WebSockets a todos los clientes conectados
-        io.emit('paymentSuccess', {
-          status: 'approved',
-          paymentId: paymentDetails.data.id,
-          amount: paymentDetails.data.transaction_amount, // Puedes enviar más detalles si es necesario
-        });
+        // Verificar si `io` está definido antes de emitir el evento
+        if (io) {
+          io.emit('paymentSuccess', {
+            status: 'approved',
+            paymentId: paymentDetails.data.id,
+            amount: paymentDetails.data.transaction_amount, // Puedes enviar más detalles si es necesario
+          });
+          console.log('Evento paymentSuccess emitido');
+        } else {
+          console.error('Error: io no está definido');
+        }
       }
 
       // Responder a Mercado Pago que el webhook fue procesado correctamente
@@ -138,6 +143,7 @@ export const receiveWebhook = async (req, res) => {
     res.status(500).json({ message: 'Error al procesar el webhook' });
   }
 };
+
 
 
 
