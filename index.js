@@ -14,7 +14,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Configuración de CORS
 app.use(cors({
-  origin: ['https://thepoint.netlify.app'], // Permite solicitudes desde el dominio de tu frontend
+  origin: ['http://localhost:5173/'], // Permite solicitudes desde el dominio de tu frontend
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'], // Permite estos encabezados
   credentials: true, // Permitir envío de cookies o autenticación basada en tokens
