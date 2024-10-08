@@ -152,7 +152,43 @@ export const receiveWebhook = async (req, res) => {
   }
 };
 
+const validateQRBeforePayment = async (req, res, next) => {
+  const { qrId } = req.body;
 
+  try {
+    // Busca el QR por su ID
+    const qr = await Qr.findById(qrId);
 
+    if (!qr) {
+      return res.status(404).json({ message: 'QR no encontrado' });
+    }
 
+    // Verifica si ya tiene una transacción completada o en progreso
+    const existingTransaction = qr.transactions.find(
+      (transaction) => transaction.status === 'completed' || transaction.status === 'pending'
+    );
 
+    if (existingTransaction) {
+      return res.status(400).json({ message: 'Este QR ya ha sido usado o tiene un pago pendiente' });
+    }
+
+    // Si no hay transacción pendiente o completada, continúa con el pago
+    next();
+  } catch (error) {
+    console.error('Error validando el QR:', error);
+    res.status(500).json({ message: 'Error en el servidor' });
+  }
+};
+const updateQrStatusAfterPayment = async (paymentId, status) => {
+  try {
+    // Encuentra el QR asociado y actualiza su estado
+    const qr = await Qr.findById(paymentId); // Asegúrate de que `paymentId` esté bien asociado
+
+    if (qr) {
+      qr.status = status === 'approved' ? 'used' : 'rejected';
+      await qr.save();
+    }
+  } catch (error) {
+    console.error('Error actualizando el estado del QR:', error);
+  }
+};
