@@ -27,12 +27,12 @@ export const createPaymentLink = async (req, res) => {
       email: 'test_user_123456@test.com', // Cambiar por el correo del usuario
     },
     back_urls: {
-      success: `${process.env.URL.trim()}/payment-result/success`, // Asegúrate de tener la URL correcta en tu entorno
-      failure: `${process.env.URL.trim()}/payment-result/failure`,
-      pending: `${process.env.URL.trim()}/payment-result/pending`,
+      success: "https://www.mercadopago.com.ar",
+      failure: "https://www.mercadopago.com.ar",
+      pending: "https://www.mercadopago.com.ar",
     },
     notification_url: `${process.env.BACKEND_URL}/Pagos/webhook`,
-    auto_return: 'approved', // Configura el retorno automático cuando el pago sea aprobado
+    auto_return: 'approved',
   };
 
   console.log('URL de éxito:', `${process.env.URL.trim()}/payment-result/success`);
@@ -46,10 +46,13 @@ export const createPaymentLink = async (req, res) => {
       }
     });
 
-    const paymentLink = response.data.init_point; // Enlace de pago
+    const paymentLink = response.data.init_point; // Enlace de pago web
 
-    // Devolver el enlace de pago al frontend
-    res.json({ paymentLink });
+    // Generar deep link para abrir directamente en la app de Mercado Pago
+    const deepLink = paymentLink.replace('https://www.mercadopago.com/', 'mercadopago://');
+
+    // Devolver el deep link al frontend
+    res.json({ paymentLink: deepLink });
   } catch (error) {
     console.error('Error al crear la preferencia de pago:', error.response ? error.response.data : error.message);
     res.status(500).json({ 
@@ -58,6 +61,9 @@ export const createPaymentLink = async (req, res) => {
     });
   }
 };
+
+
+
 
 
 export const savePaymentDetails = async (req, res) => {
@@ -130,6 +136,8 @@ export const receiveWebhook = async (req, res) => {
           paymentId: paymentDetails.data.id,
           amount: paymentDetails.data.transaction_amount, // Puedes enviar más detalles si es necesario
         });
+      }else if (paymentDetails.data.status === 'rejected') {
+        io.emit('paymentFailed', { status: 'rejected', paymentId: paymentDetails.data.id });
       }
 
       // Responder a Mercado Pago que el webhook fue procesado correctamente
