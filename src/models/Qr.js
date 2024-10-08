@@ -6,30 +6,38 @@ const Schema = mongoose.Schema;
 const transactionSchema = new Schema({
   transactionDate: {
     type: Date,
-    default: Date.now // Almacena la fecha y hora automáticamente
+    default: Date.now, // Almacena la fecha y hora automáticamente
   },
   amount: {
     type: Number,
-    required: true // Cantidad asociada a la transacción (opcional si lo necesitas)
+    required: true, // Cantidad asociada a la transacción
+  },
+  productName: {
+    type: String,
+    required: true, // Nombre del producto
+  },
+  productPrice: {
+    type: Number,
+    required: true, // Precio del producto
   },
   status: {
     type: String,
-    enum: ['pending', 'completed', 'failed'], // Puedes cambiar estos valores según tu necesidad
-    default: 'completed'
-  }
+    enum: ['pending', 'completed', 'failed'],
+    default: 'pending',
+  },
 });
 
 // Esquema principal para el QR
 const qrSchema = new Schema({
   qrCodeData: {
     type: String,
-    required: true // Los datos del QR, por ejemplo, una URL o texto encriptado
+    required: true, // Los datos del QR, por ejemplo, una URL o texto encriptado
   },
   transactions: [transactionSchema], // Cada transacción asociada a este QR
   createdAt: {
     type: Date,
-    default: Date.now // Almacena la fecha de creación del QR
-  }
+    default: Date.now, // Almacena la fecha de creación del QR
+  },
 });
 
 // Modelo de QR
