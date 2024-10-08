@@ -5,13 +5,14 @@ import http from 'http'; // Importar el módulo http
 import { Server } from 'socket.io'; // Importar socket.io
 import routerPagos from './src/Routes/Pagos/index.js';
 import routerProductos from './src/Routes/Productos/index.js';
+import routerQr from './src/Routes/Qr/index.js';
 import { dbConnect } from './src/database/config.js';
 
 const app = express();
 const server = http.createServer(app); // Crear servidor HTTP
 const io = new Server(server, {
   cors: {
-    origin: ['https://thepoint.netlify.app'], // Reemplaza con la URL de tu frontend
+    origin: ['https://thepoint.netlify.app/'], // Reemplaza con la URL de tu frontend
     methods: ['GET', 'POST'],
   },
 });
@@ -51,6 +52,7 @@ app.use(morgan('dev'));
 // Montar rutas
 app.use('/Pagos', routerPagos);
 app.use('/Productos', routerProductos);
+app.use('/Qr',routerQr);
 
 // Iniciar servidor
 server.listen(PORT, () => { // Usar server.listen en lugar de app.listen
