@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import Qr from '../../models/Qr.js';
 
 // Crear un nuevo QR y guardarlo en la base de datos
@@ -13,20 +12,6 @@ export const createQr = async (req, res) => {
           amount, // Monto asociado a la transacción
           status: 'pending', // Estado inicial
           products, // Productos relacionados con la transacción
-=======
-export const createQr = async (req, res) => {
-  const { qrCodeData, amount, productName, productPrice } = req.body; // Recibe también nombre y precio del producto
-
-  try {
-    const newQr = new Qr({
-      qrCodeData: qrCodeData, // Datos del QR, como la URL o algún identificador
-      transactions: [
-        {
-          amount: amount,
-          status: 'pending', // Estado inicial
-          productName: productName, // Guardar el nombre del producto
-          productPrice: productPrice, // Guardar el precio del producto
->>>>>>> eb43de2c9f6e9f0c31b86c137df7314a604342b8
         },
       ],
     });
@@ -39,7 +24,6 @@ export const createQr = async (req, res) => {
     res.status(500).json({ message: 'Error al crear el QR' });
   }
 };
-<<<<<<< HEAD
 
 // Validar si un QR es válido antes de proceder con el pago
 export const validateQrBeforePayment = async (req, res) => {
@@ -94,5 +78,3 @@ export const updateQrStatusAfterPayment = async (req, res) => {
     res.status(500).json({ message: 'Error al actualizar el estado del QR' });
   }
 };
-=======
->>>>>>> eb43de2c9f6e9f0c31b86c137df7314a604342b8
