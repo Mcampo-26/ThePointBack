@@ -11,7 +11,7 @@ const app = express();
 const server = http.createServer(app); // Crear servidor HTTP
 const io = new Server(server, {
   cors: {
-    origin: ['https://thepoint.netlify.app'], // Reemplaza con la URL de tu frontend
+    origin: ['http://localhost:5173','https://201a-181-94-187-198.ngrok-free.app '], // Reemplaza con la URL de tu frontend
     methods: ['GET', 'POST'],
   },
 });
@@ -27,7 +27,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Configuración de CORS
 app.use(cors({
-  origin: ['https://thepoint.netlify.app'], // Permite solicitudes desde el dominio de tu frontend
+  origin: ['http://localhost:5173'], // Permite solicitudes desde el dominio de tu frontend
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'], // Permite estos encabezados
   credentials: true, // Permitir envío de cookies o autenticación basada en tokens
@@ -50,6 +50,9 @@ app.use(morgan('dev'));
 
 // Montar rutas
 app.use('/Pagos', routerPagos);
+app.use('/Pagos', routerPagos);
+console.log("Rutas de Pagos montadas en /Pagos"); // Log para confirmar que las rutas se montan
+
 app.use('/Productos', routerProductos);
 
 // Iniciar servidor
