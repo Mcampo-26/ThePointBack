@@ -2,12 +2,6 @@ import axios from 'axios';
 import { MERCADOPAGO_API_KEY } from '../../Config/index.js';
 
 
-
-
-// Método para guardar los detalles de pago y generar el QR con el enlace directo
-import axios from 'axios';
-import { MERCADOPAGO_API_KEY } from '../../Config/index.js';
-
 export const createPaymentLink = async (req, res) => {
   const { title, price } = req.body;
 
