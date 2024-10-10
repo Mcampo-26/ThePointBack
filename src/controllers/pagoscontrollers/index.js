@@ -33,6 +33,10 @@ export const createPaymentLink = async (req, res) => {
     },
     notification_url: `${process.env.BACKEND_URL}/Pagos/webhook`,
     auto_return: 'approved',
+    external_reference: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    expires: true, // Habilitar la expiración
+    expiration_date_from: new Date().toISOString(), // Fecha de inicio de la preferencia (ahora)
+    expiration_date_to: new Date(Date.now() + 50 * 1000).toISOString(), // Expira en 50 segundos // Genera una referencia única para cada transacción
   };
 
   console.log('URL de éxito:', `${process.env.URL.trim()}/payment-result/success`);
