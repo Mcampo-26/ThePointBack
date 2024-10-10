@@ -4,6 +4,49 @@ import { MERCADOPAGO_API_KEY } from '../../Config/index.js';
 
 
 
+export const createDynamicQR = async (req, res) => {
+  const { title, price, products } = req.body;
+
+  // Verificación de datos
+  if (!title || !price || isNaN(price) || !products || products.length === 0) {
+    return res.status(400).json({ message: 'Datos inválidos: título, precio o productos no válidos' });
+  }
+
+  // Datos para la solicitud a la API de POS para generar el QR dinámico
+  const qrData = {
+    external_id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Identificador único para la transacción
+    name: title, // Título o descripción de la compra
+    fixed_amount: true, // El monto del pago es fijo
+    category: "general", // Categoría opcional
+    price: parseFloat(price), // Precio total de la compra
+    currency_id: 'ARS', // Moneda
+  };
+
+  try {
+    // Hacer la solicitud a la API de Mercado Pago para generar el QR dinámico
+    const response = await axios.post('https://api.mercadopago.com/pos/', qrData, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${MERCADOPAGO_API_KEY}`, // Asegúrate de tener la clave correcta
+      }
+    });
+
+    const qrCode = response.data.qr_code; // El QR dinámico generado por Mercado Pago
+
+    // Devolver la URL del código QR al frontend
+    res.json({ qrCodeURL: qrCode });
+  } catch (error) {
+    console.error('Error al crear el QR dinámico:', error.response ? error.response.data : error.message);
+    res.status(500).json({ message: 'Error al crear el QR dinámico', error: error.message });
+  }
+};
+
+
+
+
+
+
+
 // Método para guardar los detalles de pago y generar el QR con el enlace directo
 export const createPaymentLink = async (req, res) => {
   const { title, price } = req.body;
@@ -33,6 +76,10 @@ export const createPaymentLink = async (req, res) => {
     },
     notification_url: `${process.env.BACKEND_URL}/Pagos/webhook`,
     auto_return: 'approved',
+    external_reference: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    expires: true, // Habilitar la expiración
+    expiration_date_from: new Date().toISOString(), // Fecha de inicio de la preferencia (ahora)
+    expiration_date_to: new Date(Date.now() + 50 * 1000).toISOString(), // Expira en 50 segundos // Genera una referencia única para cada transacción
   };
 
   console.log('URL de éxito:', `${process.env.URL.trim()}/payment-result/success`);
