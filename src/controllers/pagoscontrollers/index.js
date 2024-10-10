@@ -2,6 +2,9 @@ import axios from 'axios';
 import { MERCADOPAGO_API_KEY } from '../../Config/index.js';
 
 
+import axios from 'axios';
+import { MERCADOPAGO_API_KEY } from '../../Config/index.js';
+
 export const createPaymentLink = async (req, res) => {
   const { title, price } = req.body;
 
@@ -30,6 +33,11 @@ export const createPaymentLink = async (req, res) => {
     },
     notification_url: `${process.env.BACKEND_URL}/Pagos/webhook`, // Webhook para notificaciones de Mercado Pago
     auto_return: 'approved', // Retornar automáticamente si el pago es aprobado
+
+    // Campo importante: External Reference para que el pago sea único
+    external_reference: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Genera una referencia única para cada transacción
+
+    // Expiración a los 50 segundos
     expires: true, // Habilitar la expiración
     expiration_date_from: new Date().toISOString(), // Fecha de inicio de la preferencia (ahora)
     expiration_date_to: new Date(Date.now() + 50 * 1000).toISOString(), // Expira en 50 segundos
@@ -56,6 +64,7 @@ export const createPaymentLink = async (req, res) => {
     });
   }
 };
+
 
 
 
