@@ -2,9 +2,9 @@ import axios from 'axios';
 import { MERCADOPAGO_API_KEY } from '../../Config/index.js';
 
 
-import axios from 'axios';
-import { MERCADOPAGO_API_KEY } from '../../Config/index.js';
 
+
+// Método para guardar los detalles de pago y generar el QR con el enlace directo
 export const createPaymentLink = async (req, res) => {
   const { title, price } = req.body;
 
@@ -13,49 +13,50 @@ export const createPaymentLink = async (req, res) => {
     return res.status(400).json({ message: 'Datos inválidos: título o precio no válidos' });
   }
 
-  // Crear los datos para la preferencia de pago en Mercado Pago
+  // Datos de la preferencia para Mercado Pago
   const preferenceData = {
     items: [
       {
-        title, // Título del producto
+        title, // Título genérico
         unit_price: parseFloat(price), // Precio total
         quantity: 1, // Una sola compra
-        currency_id: 'ARS', // Moneda
+        currency_id: 'ARS',
       }
     ],
     payer: {
-      email: 'test_user_123456@test.com', // Correo de prueba (cambiar en producción)
+      email: 'test_user_123456@test.com', // Cambiar por el correo del usuario
     },
     back_urls: {
-      success: "https://tuservidor.com/payment-success", // URL de éxito
-      failure: "https://tuservidor.com/payment-failure", // URL de fallo
-      pending: "https://tuservidor.com/payment-pending", // URL de pendiente
+      success: "https://www.mercadopago.com.ar",
+      failure: "https://www.mercadopago.com.ar",
+      pending: "https://www.mercadopago.com.ar",
     },
-    notification_url: `${process.env.BACKEND_URL}/Pagos/webhook`, // Webhook para notificaciones de Mercado Pago
-    auto_return: 'approved', // Retornar automáticamente si el pago es aprobado
-
-    // Campo importante: External Reference para que el pago sea único
-    external_reference: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Genera una referencia única para cada transacción
-
-    // Expiración a los 50 segundos
+    notification_url: `${process.env.BACKEND_URL}/Pagos/webhook`,
+    auto_return: 'approved',
+    external_reference: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     expires: true, // Habilitar la expiración
     expiration_date_from: new Date().toISOString(), // Fecha de inicio de la preferencia (ahora)
-    expiration_date_to: new Date(Date.now() + 50 * 1000).toISOString(), // Expira en 50 segundos
+    expiration_date_to: new Date(Date.now() + 50 * 1000).toISOString(), // Expira en 50 segundos // Genera una referencia única para cada transacción
   };
 
+  console.log('URL de éxito:', `${process.env.URL.trim()}/payment-result/success`);
+
   try {
-    // Hacer solicitud a la API de Mercado Pago para crear la preferencia
+    // Hacer solicitud a la API de Mercado Pago
     const response = await axios.post('https://api.mercadopago.com/checkout/preferences', preferenceData, {
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${MERCADOPAGO_API_KEY}`, // Clave de API de Mercado Pago
+        'Authorization': `Bearer ${MERCADOPAGO_API_KEY}`, // Asegúrate de tener la clave correcta
       }
     });
 
     const paymentLink = response.data.init_point; // Enlace de pago web
 
-    // Devolver el enlace de pago al frontend
-    res.json({ paymentLink });
+    // Generar deep link para abrir directamente en la app de Mercado Pago
+    const deepLink = paymentLink.replace('https://www.mercadopago.com/', 'mercadopago://');
+
+    // Devolver el deep link al frontend
+    res.json({ paymentLink: deepLink });
   } catch (error) {
     console.error('Error al crear la preferencia de pago:', error.response ? error.response.data : error.message);
     res.status(500).json({ 
@@ -64,8 +65,6 @@ export const createPaymentLink = async (req, res) => {
     });
   }
 };
-
-
 
 
 
