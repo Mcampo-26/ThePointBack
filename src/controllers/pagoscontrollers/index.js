@@ -4,7 +4,57 @@ import { MERCADOPAGO_API_KEY } from '../../Config/index.js';
 
 
 
-// Método para guardar los detalles de pago y generar el QR con el enlace directo
+export const createDynamicQR = async (req, res) => {
+  const { title, price, products, socketId } = req.body; // Recibir socketId del frontend
+
+  // Verificación de datos
+  if (!title || !price || isNaN(price) || !products || products.length === 0 || !socketId) {
+    return res.status(400).json({ message: 'Datos inválidos: título, precio, productos o socketId no válidos' });
+  }
+
+  // Datos para la solicitud a la API de POS para generar el QR dinámico
+  const qrData = {
+    external_id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Identificador único para la transacción
+    name: title,
+    fixed_amount: true,
+    category: "general",
+    price: parseFloat(price),
+    currency_id: 'ARS',
+  };
+
+  try {
+    // Hacer la solicitud a la API de Mercado Pago para generar el QR dinámico
+    const response = await axios.post('https://api.mercadopago.com/pos/', qrData, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${MERCADOPAGO_API_KEY}`,
+      }
+    });
+
+    const qrCode = response.data.qr_code;
+
+    // Guardar el external_id y el socketId en la base de datos
+    await Payment.create({
+      external_reference: qrData.external_id,
+      socketId, // Asociar el socketId al QR
+      status: 'pending',
+    });
+
+    // Devolver la URL del código QR al frontend
+    res.json({ qrCodeURL: qrCode });
+  } catch (error) {
+    console.error('Error al crear el QR dinámico:', error.response ? error.response.data : error.message);
+    res.status(500).json({ message: 'Error al crear el QR dinámico', error: error.message });
+  }
+};
+
+
+
+
+
+
+
+// Método para y generar el QR con el enlace directo
 export const createPaymentLink = async (req, res) => {
   const { title, price } = req.body;
 
@@ -35,8 +85,7 @@ export const createPaymentLink = async (req, res) => {
     auto_return: 'approved',
     external_reference: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     expires: true, // Habilitar la expiración
-    expiration_date_from: new Date().toISOString(), // Fecha de inicio de la preferencia (ahora)
-    expiration_date_to: new Date(Date.now() + 50 * 1000).toISOString(), // Expira en 50 segundos // Genera una referencia única para cada transacción
+    external_id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}` // Expira en 50 segundos // Genera una referencia única para cada transacción
   };
 
   console.log('URL de éxito:', `${process.env.URL.trim()}/payment-result/success`);
@@ -107,10 +156,9 @@ export const savePaymentDetails = async (req, res) => {
 
 
 export const receiveWebhook = async (req, res) => {
-  const io = req.app.locals.io; // Obtener el objeto `io` desde `app.locals`
+  const io = req.app.locals.io;
 
   if (!io) {
-    console.error('Error: io no está definido en el contexto del servidor');
     return res.status(500).json({ message: 'Error: io no está definido' });
   }
 
@@ -121,40 +169,41 @@ export const receiveWebhook = async (req, res) => {
 
     if (type === 'payment') {
       const paymentId = data.id;
-      console.log('ID del pago recibido:', paymentId);
-
-      // Obtener detalles del pago desde Mercado Pago
       const paymentDetails = await axios.get(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
         headers: {
           Authorization: `Bearer ${MERCADOPAGO_API_KEY}`,
         },
       });
 
-      // Verificar si el pago fue aprobado
       if (paymentDetails.data.status === 'approved') {
         console.log('Pago aprobado:', paymentDetails.data);
 
-        // Emitir un evento a través de WebSockets a todos los clientes conectados
-        io.emit('paymentSuccess', {
-          status: 'approved',
-          paymentId: paymentDetails.data.id,
-          amount: paymentDetails.data.transaction_amount, // Puedes enviar más detalles si es necesario
-        });
-      }else if (paymentDetails.data.status === 'rejected') {
+        // Buscar el socketId en la base de datos
+        const payment = await Payment.findOne({ external_reference: paymentDetails.data.external_reference });
+
+        if (payment) {
+          const socketId = payment.socketId;
+
+          // Emitir el evento solo al socketId que creó el QR
+          io.to(socketId).emit('paymentSuccess', {
+            status: 'approved',
+            paymentId: paymentDetails.data.id,
+            amount: paymentDetails.data.transaction_amount,
+          });
+        }
+      } else if (paymentDetails.data.status === 'rejected') {
         io.emit('paymentFailed', { status: 'rejected', paymentId: paymentDetails.data.id });
       }
 
-      // Responder a Mercado Pago que el webhook fue procesado correctamente
       res.sendStatus(200);
     } else {
-      console.log('Tipo de evento desconocido:', type);
-      res.sendStatus(200); // Responde 200 incluso si el tipo de evento no es "payment"
+      res.sendStatus(200);
     }
   } catch (error) {
-    console.error('Error procesando el webhook:', error);
     res.status(500).json({ message: 'Error al procesar el webhook' });
   }
 };
+
 
 const validateQRBeforePayment = async (req, res, next) => {
   const { qrId } = req.body;
