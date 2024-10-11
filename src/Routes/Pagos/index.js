@@ -3,6 +3,7 @@ import {
   createPaymentLink,
   savePaymentDetails,
   receiveWebhook,
+  createDynamicQR
 } from "../../controllers/pagoscontrollers/index.js";
 //import validateQRBeforePayment from "../../middleware/validateQRBeforePayment.js"; // Importa el middleware de validación de QR
 
@@ -13,6 +14,8 @@ router.post('/create_payment_link', createPaymentLink);
 
 // Ruta para guardar los detalles del pago
 router.post('/save_payment_details', savePaymentDetails);
+router.post('/create-dynamic-qr', createDynamicQR);
+
 
 // Ruta para recibir los webhooks de Mercado Pago
 router.post('/webhook', receiveWebhook);
