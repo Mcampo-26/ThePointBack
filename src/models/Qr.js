@@ -33,6 +33,10 @@ const qrSchema = new Schema({
     type: String,
     required: true, // Los datos del QR, por ejemplo, una URL o texto encriptado
   },
+  socketId: {
+    type: String, // Asociar el socketId con el QR
+    required: true, // Este campo será obligatorio para enviar notificaciones correctamente
+  },
   transactions: [transactionSchema], // Cada transacción asociada a este QR
   createdAt: {
     type: Date,
