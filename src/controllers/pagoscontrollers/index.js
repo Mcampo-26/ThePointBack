@@ -53,12 +53,6 @@ export const createDynamicQR = async (req, res) => {
 
 
 
-
-
-// Método para y generar el QR con el enlace directo
-import { MERCADOPAGO_API_KEY } from '../../Config/index.js';
-import axios from 'axios';
-
 export const createPaymentLink = async (req, res) => {
   const { title, price, socketId } = req.body;
 
@@ -66,6 +60,8 @@ export const createPaymentLink = async (req, res) => {
   if (!title || !price || isNaN(price) || !socketId) {
     return res.status(400).json({ message: 'Datos inválidos: título, precio o socketId no válidos' });
   }
+
+  const externalReference = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`; // Genera la referencia única
 
   // Datos de la preferencia para Mercado Pago
   const preferenceData = {
@@ -87,9 +83,9 @@ export const createPaymentLink = async (req, res) => {
     },
     notification_url: `${process.env.BACKEND_URL}/Pagos/webhook`,
     auto_return: 'approved',
-    external_reference: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    external_reference: externalReference, // Utiliza la referencia generada
     expires: true, // Habilitar la expiración
-    external_id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}` // Expira en 50 segundos // Genera una referencia única para cada transacción
+    external_id: externalReference // Expira en 50 segundos // Genera una referencia única para cada transacción
   };
 
   console.log('URL de éxito:', `${process.env.URL.trim()}/payment-result/success`);
@@ -107,7 +103,7 @@ export const createPaymentLink = async (req, res) => {
 
     // Almacenar el socketId junto con la transacción en tu base de datos
     await Payment.create({
-      external_reference: preferenceData.external_reference,
+      external_reference: externalReference, // Guardar el external_reference generado
       socketId, // Asociar el socketId a la transacción
       status: 'pending',
     });
@@ -118,14 +114,14 @@ export const createPaymentLink = async (req, res) => {
     // Devolver el deep link al frontend
     res.json({ paymentLink: deepLink });
   } catch (error) {
+    // Manejo de errores mejorado
     console.error('Error al crear la preferencia de pago:', error.response ? error.response.data : error.message);
     res.status(500).json({ 
       message: 'Error al crear la preferencia de pago', 
-      error: error.message,
+      error: error.response ? error.response.data : error.message,
     });
   }
 };
-
 
 
 const validateQRBeforePayment = async (req, res, next) => {
