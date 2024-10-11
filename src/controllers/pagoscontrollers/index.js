@@ -5,7 +5,8 @@ import { MERCADOPAGO_API_KEY } from '../../Config/index.js';
 
 
 export const createDynamicQR = async (req, res) => {
-  const { title, price, products, socketId } = req.body; // Recibir socketId del frontend
+  const { title, price, products, socketId } = req.body;
+   console.log('Datos recibidos en el backend:', { title, price, products, socketId });// Recibir socketId del frontend
 
   // Verificación de datos
   if (!title || !price || isNaN(price) || !products || products.length === 0 || !socketId) {
