@@ -213,12 +213,22 @@ export const createModoCheckout = async (req, res) => {
     const expirationDate = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // Fecha de expiración 10 minutos
 
     // Enviar la solicitud a MODO
+    console.log("Enviando solicitud a MODO con los siguientes datos:");
+    console.log({
+      productName: details[0].productName,
+      price: price,
+      quantity: details[0].quantity,
+      storeId: storeId,
+      externalIntentionId: externalIntentionId,
+      expirationDate: expirationDate
+    });
+
     const response = await axios.post(modoURL, {
       productName: details[0].productName,
       price: price,
       quantity: details[0].quantity,
       currency: 'ARS',
-      storeId: storeId, // Aquí se pasa el storeId correcto
+      storeId: storeId,
       externalIntentionId: externalIntentionId,
       expirationDate: expirationDate,
       message: 'Este mensaje se traslada desde la intención de pago hasta el webhook',
@@ -228,9 +238,15 @@ export const createModoCheckout = async (req, res) => {
       }
     });
 
+    // Verificar la respuesta completa de MODO
     console.log("Respuesta de la API de MODO:", response.data);
-    
+
     const { qr_url, deeplink } = response.data;
+
+    if (!qr_url) {
+      console.warn("MODO no devolvió un 'qr_url', solo el 'deeplink':", deeplink);
+    }
+
     res.json({ qr_url, deeplink });
 
   } catch (error) {
