@@ -202,7 +202,7 @@ export const createModoCheckout = async (req, res) => {
   }
 
   try {
-    const response = await axios.post('https://merchants.playdigital.com.ar/merchants/ecommerce/payment-intention', {
+    const response = await axios.post('https://merchants.preprod.playdigital.com.ar/merchants/ecommerce/payment-intention', {
       amount: price,
       currency: 'ARS',
       description: 'Compra en tienda',
