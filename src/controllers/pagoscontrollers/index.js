@@ -5,22 +5,25 @@ import { MERCADOPAGO_API_KEY } from '../../Config/index.js';
 
 
 export const createDynamicQR = async (req, res) => {
-  const { title, price, products, socketId } = req.body; // Recibir socketId del frontend
+  const { title, price, socketId } = req.body;
 
   // Verificación de datos
-  if (!title || !price || isNaN(price) || !products || products.length === 0 || !socketId) {
-    return res.status(400).json({ message: 'Datos inválidos: título, precio, productos o socketId no válidos' });
+  if (!title || !price || isNaN(price) || !socketId) {
+    console.error('Datos inválidos:', { title, price, socketId });
+    return res.status(400).json({ message: 'Datos inválidos: título, precio o socketId no válidos' });
   }
 
   // Datos para la solicitud a la API de POS para generar el QR dinámico
   const qrData = {
-    external_id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Identificador único para la transacción
+    external_id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     name: title,
     fixed_amount: true,
-    category: "general",
     price: parseFloat(price),
     currency_id: 'ARS',
+    category: "general",
   };
+
+  console.log('Datos enviados a Mercado Pago:', qrData);
 
   try {
     // Hacer la solicitud a la API de Mercado Pago para generar el QR dinámico
@@ -31,7 +34,14 @@ export const createDynamicQR = async (req, res) => {
       }
     });
 
-    const qrCode = response.data.qr_code;
+    console.log('Respuesta de Mercado Pago:', response.data);
+
+    const qrCode = response.data.qr_code; // URL de la imagen del QR
+
+    if (!qrCode) {
+      console.error('Error: No se recibió un código QR de Mercado Pago.');
+      return res.status(500).json({ message: 'No se recibió un código QR de Mercado Pago.' });
+    }
 
     // Guardar el external_id y el socketId en la base de datos
     await Payment.create({
@@ -40,6 +50,8 @@ export const createDynamicQR = async (req, res) => {
       status: 'pending',
     });
 
+    console.log('QR creado correctamente en la base de datos.');
+
     // Devolver la URL del código QR al frontend
     res.json({ qrCodeURL: qrCode });
   } catch (error) {
@@ -47,7 +59,6 @@ export const createDynamicQR = async (req, res) => {
     res.status(500).json({ message: 'Error al crear el QR dinámico', error: error.message });
   }
 };
-
 
 
 
