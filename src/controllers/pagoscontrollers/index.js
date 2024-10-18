@@ -253,7 +253,6 @@ export const createModoCheckout = async (req, res) => {
 
 
 
-
 // Controlador para manejar el webhook de MODO (sin almacenar datos)
 export const receiveModoWebhook = async (req, res) => {
   try {
