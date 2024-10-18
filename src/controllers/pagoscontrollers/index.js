@@ -195,57 +195,44 @@ export const receiveWebhook = async (req, res) => {
 
 
 export const createModoCheckout = async (req, res) => {
-  const { price, details } = req.body; // Asegúrate de que 'details' se esté enviando correctamente
+  const { price, details } = req.body;
 
-  // Log para verificar qué datos se reciben
   console.log("Recibiendo solicitud para crear checkout de MODO con precio:", price, "y detalles:", details);
 
   if (!details || details.length === 0) {
-    console.log("Detalles faltantes en la solicitud"); // Log para indicar que los detalles están faltando
+    console.log("Detalles faltantes en la solicitud");
     return res.status(400).json({ message: "Faltan los detalles de los productos" });
   }
 
   try {
-    const modoURL = 'https://merchants.playdigital.com.ar/merchants/ecommerce/payment-intention'; // Cambia a producción si es necesario
-
-    // Log para ver los detalles que se envían
-    console.log("Enviando datos a la API de MODO:", {
-      amount: price,
+    const modoURL = 'https://merchants.playdigital.com.ar/merchants/ecommerce/payment-intention';
+    
+    // Cambiar los datos según el formato que MODO requiere
+    const payload = {
+      productName: details[0].productName, // Solo un producto, ajusta si tienes varios
+      price: price,
+      quantity: details[0].quantity,
       currency: 'ARS',
-      description: 'Compra en tienda',
-      external_reference: 'ID_UNICO_DE_TRANSACCION',
-      details: details.map(detail => ({
-        item_name: detail.productName,  // Nombre del producto
-        item_quantity: detail.quantity, // Cantidad
-        item_price: detail.price,       // Precio
-      })),
-    });
+      storeId: 'dc65b86e-0c89-4afd-bc5a-3a6b085650f1', // Asegúrate de usar tu storeId correcto
+      externalIntentionId: '1234', // Este ID debería ser generado de manera única por transacción
+      expirationDate: new Date(new Date().getTime() + 30 * 60 * 1000).toISOString(), // Añadir 30 minutos a la hora actual
+      message: "Este mensaje se traslada desde la intención de pago hasta el webhook"
+    };
 
-    // Enviar la solicitud a MODO
-    const response = await axios.post(modoURL, {
-      amount: price,
-      currency: 'ARS',
-      description: 'Compra en tienda',
-      external_reference: 'ID_UNICO_DE_TRANSACCION',
-      details: details.map(detail => ({
-        item_name: detail.productName,
-        item_quantity: detail.quantity,
-        item_price: detail.price,
-      })),
-    }, {
+    console.log("Enviando datos a la API de MODO:", payload);
+
+    const response = await axios.post(modoURL, payload, {
       headers: {
         'Authorization': `Bearer ${MODO_TOKEN}`, // Asegúrate de que el token es correcto
       }
     });
 
-    // Log para mostrar la respuesta de MODO
     console.log("Respuesta de la API de MODO:", response.data);
     
     const { qr_url, deeplink } = response.data;
     res.json({ qr_url, deeplink });
 
   } catch (error) {
-    // Log detallado del error para depurar mejor
     console.error("Error al crear el checkout de MODO:", error.response ? error.response.data : error.message);
     res.status(500).json({ message: "Error creando la intención de pago" });
   }
