@@ -1,52 +1,5 @@
 import axios from 'axios';
-import { MERCADOPAGO_API_KEY } from '../../Config/index.js';
-
-
-
-
-export const createDynamicQR = async (req, res) => {
-  const { title, price, socketId } = req.body;
-
-  // Verificación de datos
-  if (!title || !price || isNaN(price) || !socketId) {
-    return res.status(400).json({ message: 'Datos inválidos: título, precio o socketId no válidos' });
-  }
-
-  // Datos para la solicitud a la API de POS para generar el QR dinámico
-  const qrData = {
-    external_id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    name: title,
-    fixed_amount: true,
-    price: parseFloat(price),
-    currency_id: 'ARS',
-    category: "general",
-  };
-
-  try {
-    // Hacer la solicitud a la API de Mercado Pago para generar el QR dinámico
-    const response = await axios.post('https://api.mercadopago.com/pos/', qrData, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${MERCADOPAGO_API_KEY}`,
-      }
-    });
-
-    const qrCode = response.data.qr_code; // URL de la imagen del QR
-
-    // Guardar el external_id y el socketId en la base de datos
-    await Payment.create({
-      external_reference: qrData.external_id,
-      socketId, // Asociar el socketId al QR
-      status: 'pending',
-    });
-
-    // Devolver la URL del código QR al frontend
-    res.json({ qrCodeURL: qrCode });
-  } catch (error) {
-    console.error('Error al crear el QR dinámico:', error.response ? error.response.data : error.message);
-    res.status(500).json({ message: 'Error al crear el QR dinámico', error: error.message });
-  }
-};
+import { MERCADOPAGO_API_KEY, MODO_TOKEN} from '../../Config/index.js';
 
 
 
@@ -243,49 +196,47 @@ export const receiveWebhook = async (req, res) => {
 
 
 
-import  {MODO_TOKEN} from '../Modo/index.js'
-
 export const createModoCheckout = async (req, res) => {
-    console.log("Recibiendo solicitud para crear checkout de MODO"); // L
-    const { price } = req.body;
-  
-    try {
-        console.log("Datos recibidos:", price);
-      const response = await axios.post("https://api.modo.com.ar/payments", {
-        amount: price,
-        currency: "ARS", // Moneda en formato ISO 4217
-        description: "Compra en tienda",
-        external_reference: "ID_UNICO_DE_TRANSACCION" // Puedes generar un ID único para cada transacción
-    }, {
-        headers: {
-                 'Authorization': `Bearer ${MODO_TOKEN}`
-        }
-    });
-  
-      const {  qr_url, deeplink, external_reference} = response.data;
-      console.log("Respuesta de MODO recibida:", qr_url, deeplink); //
-      res.json({  qr_url, deeplink, external_reference});
-    } catch (error) {
-      res.status(500).json({ message: "Error creando la intención de pago" });
-    }
-  };
+  console.log("Recibiendo solicitud para crear checkout de MODO"); // L
+  const { price } = req.body;
+
+  try {
+      console.log("Datos recibidos:", price);
+    const response = await axios.post("https://api.modo.com.ar/payments", {
+      amount: price,
+      currency: "ARS", // Moneda en formato ISO 4217
+      description: "Compra en tienda",
+      external_reference: "ID_UNICO_DE_TRANSACCION" // Puedes generar un ID único para cada transacción
+  }, {
+      headers: {
+               'Authorization': `Bearer ${MODO_TOKEN}`
+      }
+  });
+
+    const {  qr_url, deeplink, external_reference} = response.data;
+    console.log("Respuesta de MODO recibida:", qr_url, deeplink); //
+    res.json({  qr_url, deeplink, external_reference});
+  } catch (error) {
+    res.status(500).json({ message: "Error creando la intención de pago" });
+  }
+};
 
 // Controlador para manejar el webhook de MODO (sin almacenar datos)
 export const receiveModoWebhook = async (req, res) => {
-    try {
-      const { paymentId, status, amount, date } = req.body;
-  
-      // Simplemente imprime los datos recibidos para verificarlos
-      console.log("Webhook de MODO recibido:");
-      console.log("ID del pago:", paymentId);
-      console.log("Estado del pago:", status);
-      console.log("Monto:", amount);
-      console.log("Fecha de la transacción:", date);
-  
-      // Responder al webhook de MODO
-      res.status(200).json({ message: "Webhook recibido y procesado correctamente" });
-    } catch (error) {
-      console.error("Error al procesar el webhook de MODO:", error);
-      res.status(500).json({ message: "Error al procesar el webhook" });
-    }
-  };
+  try {
+    const { paymentId, status, amount, date } = req.body;
+
+    // Simplemente imprime los datos recibidos para verificarlos
+    console.log("Webhook de MODO recibido:");
+    console.log("ID del pago:", paymentId);
+    console.log("Estado del pago:", status);
+    console.log("Monto:", amount);
+    console.log("Fecha de la transacción:", date);
+
+    // Responder al webhook de MODO
+    res.status(200).json({ message: "Webhook recibido y procesado correctamente" });
+  } catch (error) {
+    console.error("Error al procesar el webhook de MODO:", error);
+    res.status(500).json({ message: "Error al procesar el webhook" });
+  }
+};
