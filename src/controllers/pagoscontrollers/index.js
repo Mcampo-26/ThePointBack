@@ -197,6 +197,7 @@ export const receiveWebhook = async (req, res) => {
 export const createModoCheckout = async (req, res) => {
   const { price, details } = req.body;
 
+  // Log para verificar qué datos se reciben
   console.log("Recibiendo solicitud para crear checkout de MODO con precio:", price, "y detalles:", details);
 
   if (!details || details.length === 0) {
@@ -207,27 +208,23 @@ export const createModoCheckout = async (req, res) => {
   try {
     const modoURL = 'https://merchants.playdigital.com.ar/merchants/ecommerce/payment-intention';
     
-    // Obtener la hora actual y ajustar la expiración para que esté entre 5 y 10 minutos
-    const now = new Date();
-    now.setMinutes(now.getMinutes() + 6); // Ajusta la expiración a 6 minutos desde el momento actual
-    const expirationDate = now.toISOString(); // Convertir a formato ISO
+    const storeId = 'b56f4d39-afed-47e5-84c4-664b96668915'; // StoreId correcto
+    const externalIntentionId = '1234'; // Puedes cambiar este valor si es necesario
+    const expirationDate = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // Fecha de expiración 10 minutos
 
-    const payload = {
-      productName: details[0].productName, // Nombre del producto
+    // Enviar la solicitud a MODO
+    const response = await axios.post(modoURL, {
+      productName: details[0].productName,
       price: price,
       quantity: details[0].quantity,
       currency: 'ARS',
-      storeId: 'dc65b86e-0c89-4afd-bc5a-3a6b085650f1', // Tu storeId correcto
-      externalIntentionId: '1234', // ID único generado para esta transacción
-      expirationDate: expirationDate, // Fecha ajustada
-      message: "Este mensaje se traslada desde la intención de pago hasta el webhook"
-    };
-
-    console.log("Enviando datos a la API de MODO:", payload);
-
-    const response = await axios.post(modoURL, payload, {
+      storeId: storeId, // Aquí se pasa el storeId correcto
+      externalIntentionId: externalIntentionId,
+      expirationDate: expirationDate,
+      message: 'Este mensaje se traslada desde la intención de pago hasta el webhook',
+    }, {
       headers: {
-        'Authorization': `Bearer ${MODO_TOKEN}`, // Token de autenticación de MODO
+        'Authorization': `Bearer ${MODO_TOKEN}`, // Asegúrate de que el token es correcto
       }
     });
 
