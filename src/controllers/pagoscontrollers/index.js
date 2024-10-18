@@ -193,39 +193,64 @@ export const receiveWebhook = async (req, res) => {
   }
 };
 
+
 export const createModoCheckout = async (req, res) => {
-  const { price, details } = req.body; // Recibir los detalles del producto
+  const { price, details } = req.body; // Asegúrate de que 'details' se esté enviando correctamente
+
+  // Log para verificar qué datos se reciben
   console.log("Recibiendo solicitud para crear checkout de MODO con precio:", price, "y detalles:", details);
 
   if (!details || details.length === 0) {
+    console.log("Detalles faltantes en la solicitud"); // Log para indicar que los detalles están faltando
     return res.status(400).json({ message: "Faltan los detalles de los productos" });
   }
 
   try {
-    const response = await axios.post('https://merchants.preprod.playdigital.com.ar/merchants/ecommerce/payment-intention', {
+    const modoURL = 'https://merchants.playdigital.com.ar/merchants/ecommerce/payment-intention'; // Cambia a producción si es necesario
+
+    // Log para ver los detalles que se envían
+    console.log("Enviando datos a la API de MODO:", {
       amount: price,
       currency: 'ARS',
       description: 'Compra en tienda',
       external_reference: 'ID_UNICO_DE_TRANSACCION',
       details: details.map(detail => ({
-        item_name: detail.productName,  // Enviar el nombre del producto
-        item_quantity: detail.quantity, // Cantidad de producto
-        item_price: detail.price,       // Precio por unidad
+        item_name: detail.productName,  // Nombre del producto
+        item_quantity: detail.quantity, // Cantidad
+        item_price: detail.price,       // Precio
+      })),
+    });
+
+    // Enviar la solicitud a MODO
+    const response = await axios.post(modoURL, {
+      amount: price,
+      currency: 'ARS',
+      description: 'Compra en tienda',
+      external_reference: 'ID_UNICO_DE_TRANSACCION',
+      details: details.map(detail => ({
+        item_name: detail.productName,
+        item_quantity: detail.quantity,
+        item_price: detail.price,
       })),
     }, {
       headers: {
-        'Authorization': `Bearer ${MODO_TOKEN}`, // Asegúrate de usar el token correcto
+        'Authorization': `Bearer ${MODO_TOKEN}`, // Asegúrate de que el token es correcto
       }
     });
 
-    const { qr_url, deeplink } = response.data;
+    // Log para mostrar la respuesta de MODO
     console.log("Respuesta de la API de MODO:", response.data);
+    
+    const { qr_url, deeplink } = response.data;
     res.json({ qr_url, deeplink });
+
   } catch (error) {
+    // Log detallado del error para depurar mejor
     console.error("Error al crear el checkout de MODO:", error.response ? error.response.data : error.message);
     res.status(500).json({ message: "Error creando la intención de pago" });
   }
 };
+
 
 
 
