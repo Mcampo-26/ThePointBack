@@ -193,33 +193,34 @@ export const receiveWebhook = async (req, res) => {
   }
 };
 
-
-
-
 export const createModoCheckout = async (req, res) => {
-  console.log("Recibiendo solicitud para crear checkout de MODO"); // L
   const { price } = req.body;
+  console.log("Recibiendo solicitud para crear checkout de MODO con precio:", price); // Log del precio recibido
 
   try {
-      console.log("Datos recibidos:", price);
-    const response = await axios.post("https://api.modo.com.ar/payments", {
+    const response = await axios.post('https://api.modo.com.ar/payments', {
       amount: price,
-      currency: "ARS", // Moneda en formato ISO 4217
-      description: "Compra en tienda",
-      external_reference: "ID_UNICO_DE_TRANSACCION" // Puedes generar un ID único para cada transacción
-  }, {
+      currency: 'ARS',
+      description: 'Compra en tienda',
+      external_reference: 'ID_UNICO_DE_TRANSACCION', // Genera un ID único
+    }, {
       headers: {
-               'Authorization': `Bearer ${MODO_TOKEN}`
+        'Authorization': `Bearer ${MODO_TOKEN}`, // Asegúrate de que el token es correcto
       }
-  });
+    });
 
-    const {  qr_url, deeplink, external_reference} = response.data;
-    console.log("Respuesta de MODO recibida:", qr_url, deeplink); //
-    res.json({  qr_url, deeplink, external_reference});
+    const { qr_url, deeplink } = response.data;
+    console.log("Respuesta de la API de MODO:", response.data); // Log completo de la respuesta de MODO
+    res.json({ qr_url, deeplink });
   } catch (error) {
+    console.error("Error al crear el checkout de MODO:", error); // Log del error
     res.status(500).json({ message: "Error creando la intención de pago" });
   }
 };
+
+
+
+
 
 // Controlador para manejar el webhook de MODO (sin almacenar datos)
 export const receiveModoWebhook = async (req, res) => {
