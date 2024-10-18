@@ -197,31 +197,11 @@ export const receiveWebhook = async (req, res) => {
 export const createModoCheckout = async (req, res) => {
   const { price, details } = req.body;
 
-  // Log para verificar qué datos se reciben
-  console.log("Recibiendo solicitud para crear checkout de MODO con precio:", price, "y detalles:", details);
-
-  if (!details || details.length === 0) {
-    console.log("Detalles faltantes en la solicitud");
-    return res.status(400).json({ message: "Faltan los detalles de los productos" });
-  }
-
   try {
     const modoURL = 'https://merchants.playdigital.com.ar/merchants/ecommerce/payment-intention';
-    
-    const storeId = 'b56f4d39-afed-47e5-84c4-664b96668915'; // StoreId correcto
-    const externalIntentionId = '1234'; // Puedes cambiar este valor si es necesario
-    const expirationDate = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // Fecha de expiración 10 minutos
-
-    // Enviar la solicitud a MODO
-    console.log("Enviando solicitud a MODO con los siguientes datos:");
-    console.log({
-      productName: details[0].productName,
-      price: price,
-      quantity: details[0].quantity,
-      storeId: storeId,
-      externalIntentionId: externalIntentionId,
-      expirationDate: expirationDate
-    });
+    const storeId = 'b56f4d39-afed-47e5-84c4-664b96668915';
+    const externalIntentionId = '1234';
+    const expirationDate = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
     const response = await axios.post(modoURL, {
       productName: details[0].productName,
@@ -234,26 +214,22 @@ export const createModoCheckout = async (req, res) => {
       message: 'Este mensaje se traslada desde la intención de pago hasta el webhook',
     }, {
       headers: {
-        'Authorization': `Bearer ${MODO_TOKEN}`, // Asegúrate de que el token es correcto
+        'Authorization': `Bearer ${MODO_TOKEN}`,
       }
     });
 
-    // Verificar la respuesta completa de MODO
     console.log("Respuesta de la API de MODO:", response.data);
 
-    const { qr_url, deeplink } = response.data;
+    const { qr, deeplink } = response.data;
 
-    if (!qr_url) {
-      console.warn("MODO no devolvió un 'qr_url', solo el 'deeplink':", deeplink);
-    }
-
-    res.json({ qr_url, deeplink });
-
+    // Envía la respuesta al frontend
+    res.json({ qr, deeplink });
   } catch (error) {
     console.error("Error al crear el checkout de MODO:", error.response ? error.response.data : error.message);
     res.status(500).json({ message: "Error creando la intención de pago" });
   }
 };
+
 
 
 
