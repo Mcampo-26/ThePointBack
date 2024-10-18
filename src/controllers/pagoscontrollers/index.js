@@ -237,8 +237,8 @@ export const createModoCheckout = async (req, res) => {
 
     console.log("Respuesta de la API de MODO:", response.data);
     
-    const { qr_url, deeplink } = response.data;
-    res.json({ qr_url, deeplink });
+    const { qr, deeplink } = response.data;
+    res.json({ qr, deeplink });
 
   } catch (error) {
     console.error("Error al crear el checkout de MODO:", error.response ? error.response.data : error.message);
