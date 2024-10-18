@@ -207,9 +207,9 @@ export const createModoCheckout = async (req, res) => {
   try {
     const modoURL = 'https://merchants.playdigital.com.ar/merchants/ecommerce/payment-intention';
     
-    // Obtener la hora actual y agregar exactamente 4 minutos
+    // Obtener la hora actual y agregar exactamente 2 minutos
     const now = new Date();
-    now.setMinutes(now.getMinutes() + 4); // Expiración en 4 minutos desde el momento actual
+    now.setMinutes(now.getMinutes() + 2); // Expiración en 2 minutos desde el momento actual
     const expirationDate = now.toISOString(); // Convertir a formato ISO
 
     const payload = {
@@ -241,7 +241,6 @@ export const createModoCheckout = async (req, res) => {
     res.status(500).json({ message: "Error creando la intención de pago" });
   }
 };
-
 
 
 // Controlador para manejar el webhook de MODO (sin almacenar datos)
