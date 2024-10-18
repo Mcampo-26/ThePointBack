@@ -207,7 +207,9 @@ export const createModoCheckout = async (req, res) => {
   try {
     const modoURL = 'https://merchants.playdigital.com.ar/merchants/ecommerce/payment-intention';
     
-    // Cambiar los datos según el formato que MODO requiere
+    // Ajustar la expiración para que sea 5 minutos desde el momento actual
+    const expirationDate = new Date(new Date().getTime() + 5 * 60 * 1000).toISOString(); 
+
     const payload = {
       productName: details[0].productName, // Solo un producto, ajusta si tienes varios
       price: price,
@@ -215,7 +217,7 @@ export const createModoCheckout = async (req, res) => {
       currency: 'ARS',
       storeId: 'dc65b86e-0c89-4afd-bc5a-3a6b085650f1', // Asegúrate de usar tu storeId correcto
       externalIntentionId: '1234', // Este ID debería ser generado de manera única por transacción
-      expirationDate: new Date(new Date().getTime() + 30 * 60 * 1000).toISOString(), // Añadir 30 minutos a la hora actual
+      expirationDate: expirationDate, // Fecha ajustada
       message: "Este mensaje se traslada desde la intención de pago hasta el webhook"
     };
 
