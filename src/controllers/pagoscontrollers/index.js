@@ -207,16 +207,18 @@ export const createModoCheckout = async (req, res) => {
   try {
     const modoURL = 'https://merchants.playdigital.com.ar/merchants/ecommerce/payment-intention';
     
-    // Ajustar la expiración para que sea 5 minutos desde el momento actual
-    const expirationDate = new Date(new Date().getTime() + 5 * 60 * 1000).toISOString(); 
+    // Obtener la hora actual y agregar exactamente 4 minutos
+    const now = new Date();
+    now.setMinutes(now.getMinutes() + 4); // Expiración en 4 minutos desde el momento actual
+    const expirationDate = now.toISOString(); // Convertir a formato ISO
 
     const payload = {
-      productName: details[0].productName, // Solo un producto, ajusta si tienes varios
+      productName: details[0].productName, // Nombre del producto
       price: price,
       quantity: details[0].quantity,
       currency: 'ARS',
-      storeId: 'dc65b86e-0c89-4afd-bc5a-3a6b085650f1', // Asegúrate de usar tu storeId correcto
-      externalIntentionId: '1234', // Este ID debería ser generado de manera única por transacción
+      storeId: 'dc65b86e-0c89-4afd-bc5a-3a6b085650f1', // Tu storeId correcto
+      externalIntentionId: '1234', // ID único generado para esta transacción
       expirationDate: expirationDate, // Fecha ajustada
       message: "Este mensaje se traslada desde la intención de pago hasta el webhook"
     };
@@ -225,7 +227,7 @@ export const createModoCheckout = async (req, res) => {
 
     const response = await axios.post(modoURL, payload, {
       headers: {
-        'Authorization': `Bearer ${MODO_TOKEN}`, // Asegúrate de que el token es correcto
+        'Authorization': `Bearer ${MODO_TOKEN}`, // Token de autenticación de MODO
       }
     });
 
