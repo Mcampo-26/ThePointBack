@@ -13,44 +13,45 @@ export const createDynamicQR = async (req, res) => {
     return res.status(400).json({ message: 'Datos inválidos: título, precio o socketId no válidos' });
   }
 
-  // Datos para la solicitud a la API de POS para generar el QR dinámico
-  const qrData = {
-    external_id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    name: title,
-    fixed_amount: true,
-    price: parseFloat(price),
-    currency_id: 'ARS',
-    category: "general",
+  // Datos para la solicitud a la API de Mercado Pago para generar la preferencia
+  const preferenceData = {
+    items: [
+      {
+        title, // Nombre del producto
+        quantity: 1, // Cantidad de productos
+        unit_price: parseFloat(price), // Precio del producto
+        currency_id: 'ARS', // Moneda
+      },
+    ],
+    external_reference: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Identificador único
+    back_urls: {
+      success: "https://www.mercadopago.com.ar", // Cambia esto por tu URL de éxito
+      failure: "https://www.mercadopago.com.ar",
+      pending: "https://www.mercadopago.com.ar",
+    },
+    notification_url: "https://tusitio.com/webhook", // URL donde recibirás notificaciones de pago
+    auto_return: "approved",
   };
 
-  console.log('Datos enviados a Mercado Pago:', qrData);
+  console.log('Datos enviados a Mercado Pago:', preferenceData);
 
   try {
     // Hacer la solicitud a la API de Mercado Pago para generar el QR dinámico
-    const response = await axios.post('https://api.mercadopago.com/checkout/preferences', qrData, {
+    const response = await axios.post('https://api.mercadopago.com/checkout/preferences', preferenceData, {
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${MERCADOPAGO_API_KEY}`, // Corregido aquí
+        'Authorization': `Bearer ${MERCADOPAGO_API_KEY}`,
       }
     });
 
     console.log('Respuesta de Mercado Pago:', response.data);
 
-    const qrCode = response.data.qr_code; // URL de la imagen del QR
+    const qrCode = response.data.init_point; // URL del QR (init_point es el enlace de pago)
 
     if (!qrCode) {
       console.error('Error: No se recibió un código QR de Mercado Pago.');
       return res.status(500).json({ message: 'No se recibió un código QR de Mercado Pago.' });
     }
-
-    // Guardar el external_id y el socketId en la base de datos
-    await Payment.create({
-      external_reference: qrData.external_id,
-      socketId, // Asociar el socketId al QR
-      status: 'pending',
-    });
-
-    console.log('QR creado correctamente en la base de datos.');
 
     // Devolver la URL del código QR al frontend
     res.json({ qrCodeURL: qrCode });
@@ -59,6 +60,7 @@ export const createDynamicQR = async (req, res) => {
     res.status(500).json({ message: 'Error al crear el QR dinámico', error: error.message });
   }
 };
+
 
 
 // Método para y generar el QR con el enlace directo
