@@ -194,36 +194,52 @@ export const receiveWebhook = async (req, res) => {
 };
 
 
+
+
+
+
+
+
+
 export const createModoCheckout = async (req, res) => {
   const { price, details } = req.body;
 
+  // Log para verificar qué datos se reciben
+  console.log("Recibiendo solicitud para crear checkout de MODO con precio:", price, "y detalles:", details);
+
+  if (!details || details.length === 0) {
+    console.log("Detalles faltantes en la solicitud");
+    return res.status(400).json({ message: "Faltan los detalles de los productos" });
+  }
+
   try {
     const modoURL = 'https://merchants.playdigital.com.ar/merchants/ecommerce/payment-intention';
-    const storeId = 'b56f4d39-afed-47e5-84c4-664b96668915';
-    const externalIntentionId = '1234';
-    const expirationDate = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    
+    const storeId = 'b56f4d39-afed-47e5-84c4-664b96668915'; // StoreId correcto
+    const externalIntentionId = '1234'; // Puedes cambiar este valor si es necesario
+    const expirationDate = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // Fecha de expiración 10 minutos
 
+    // Enviar la solicitud a MODO
     const response = await axios.post(modoURL, {
       productName: details[0].productName,
       price: price,
       quantity: details[0].quantity,
       currency: 'ARS',
-      storeId: storeId,
+      storeId: storeId, // Aquí se pasa el storeId correcto
       externalIntentionId: externalIntentionId,
       expirationDate: expirationDate,
       message: 'Este mensaje se traslada desde la intención de pago hasta el webhook',
     }, {
       headers: {
-        'Authorization': `Bearer ${MODO_TOKEN}`,
+        'Authorization': `Bearer ${MODO_TOKEN}`, // Asegúrate de que el token es correcto
       }
     });
 
     console.log("Respuesta de la API de MODO:", response.data);
+    
+    const { qr_url, deeplink } = response.data;
+    res.json({ qr_url, deeplink });
 
-    const { qr, deeplink } = response.data;
-
-    // Envía la respuesta al frontend
-    res.json({ qr, deeplink });
   } catch (error) {
     console.error("Error al crear el checkout de MODO:", error.response ? error.response.data : error.message);
     res.status(500).json({ message: "Error creando la intención de pago" });
@@ -235,20 +251,74 @@ export const createModoCheckout = async (req, res) => {
 
 // Controlador para manejar el webhook de MODO (sin almacenar datos)
 export const receiveModoWebhook = async (req, res) => {
+  const io = req.app.locals.io; // Obtener el objeto `io` desde `app.locals`
+
+  if (!io) {
+    console.error('Error: io no está definido en el contexto del servidor');
+    return res.status(500).json({ message: 'Error: io no está definido' });
+  }
+
+  console.log('Webhook de MODO recibido:', req.body);
+
   try {
-    const { paymentId, status, amount, date } = req.body;
+    // Extraer la información relevante del webhook
+    const { paymentId, status, amount } = req.body;
 
-    // Simplemente imprime los datos recibidos para verificarlos
-    console.log("Webhook de MODO recibido:");
-    console.log("ID del pago:", paymentId);
-    console.log("Estado del pago:", status);
-    console.log("Monto:", amount);
-    console.log("Fecha de la transacción:", date);
+    console.log('ID del pago recibido desde MODO:', paymentId);
+    console.log('Estado del pago:', status);
+    console.log('Monto del pago:', amount);
 
-    // Responder al webhook de MODO
-    res.status(200).json({ message: "Webhook recibido y procesado correctamente" });
+    // Verificar si el pago fue aprobado
+    if (status === 'APPROVED') {
+      console.log('Pago aprobado:', paymentId);
+
+      // Buscar el QR en la base de datos por external_reference (si lo tienes en tu modelo)
+      const qrRecord = await Qr.findOne({ 'transactions.external_reference': paymentId });
+
+      if (qrRecord) {
+        // Actualizar el estado de la transacción en el QR
+        const transaction = qrRecord.transactions.find((t) => t.external_reference === paymentId);
+        if (transaction) {
+          transaction.status = 'completed';
+          await qrRecord.save();
+        }
+
+        const socketId = qrRecord.socketId;
+
+        // Emitir el evento solo al socketId correspondiente
+        io.to(socketId).emit('paymentSuccess', {
+          status: 'approved',
+          paymentId: paymentId,
+          amount: amount, // Puedes enviar más detalles si es necesario
+        });
+      }
+    } else if (status === 'REJECTED') {
+      console.log('Pago rechazado:', paymentId);
+
+      // Actualizar el estado del pago como rechazado en la base de datos
+      const qrRecord = await Qr.findOne({ 'transactions.external_reference': paymentId });
+
+      if (qrRecord) {
+        const transaction = qrRecord.transactions.find((t) => t.external_reference === paymentId);
+        if (transaction) {
+          transaction.status = 'failed';
+          await qrRecord.save();
+        }
+
+        const socketId = qrRecord.socketId;
+
+        // Emitir el evento solo al socketId correspondiente
+        io.to(socketId).emit('paymentFailed', {
+          status: 'rejected',
+          paymentId: paymentId,
+        });
+      }
+    }
+
+    // Responder a MODO que el webhook fue procesado correctamente
+    res.sendStatus(200);
   } catch (error) {
-    console.error("Error al procesar el webhook de MODO:", error);
-    res.status(500).json({ message: "Error al procesar el webhook" });
+    console.error('Error procesando el webhook de MODO:', error);
+    res.status(500).json({ message: 'Error al procesar el webhook de MODO' });
   }
 };
