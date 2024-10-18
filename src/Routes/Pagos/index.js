@@ -3,6 +3,7 @@ import {
   createPaymentLink,
   savePaymentDetails,
   receiveWebhook,
+  receiveModoWebhook,
   createModoCheckout
 
 } from "../../controllers/pagoscontrollers/index.js";
@@ -17,8 +18,8 @@ router.post('/create_modo', createModoCheckout);
 router.post('/save_payment_details', savePaymentDetails);
 
 
-
-// Ruta para recibir los webhooks de Mercado Pago
-router.post('/webhook', receiveWebhook);
+receiveModoWebhook
+/router.post('/webhook', receiveModoWebhook);// Ruta para recibir los webhooks de Mercado Pago
+router.post('/webhook/modo', receiveWebhook);
 
 export default router;
