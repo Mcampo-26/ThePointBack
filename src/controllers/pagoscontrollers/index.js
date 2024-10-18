@@ -194,41 +194,31 @@ export const receiveWebhook = async (req, res) => {
 };
 
 export const createModoCheckout = async (req, res) => {
-  const { price } = req.body;
-  const MODO_TOKEN = process.env.MODO_TOKEN; // Asegúrate de tener configurado este token correctamente
-
-  console.log("Recibiendo solicitud para crear checkout de MODO con precio:", price);
+  const { price, details } = req.body;
+  console.log("Recibiendo solicitud para crear checkout de MODO con precio:", price, "y detalles:", details); // Log del precio y detalles recibidos
 
   try {
-    // Generar referencia única para la transacción
-    const externalReference = `order_${Date.now()}`;
-    
     const response = await axios.post('https://api.modo.com.ar/api/v1/payments', {
-      amount: price,
-      currency: 'ARS',
-      description: 'Compra en tienda',
-      external_reference: externalReference,
+      amount: price, // El precio del producto
+      currency: 'ARS', // La moneda de la transacción
+      description: 'Compra en tienda', // Descripción de la transacción
+      external_reference: 'ID_UNICO_DE_TRANSACCION', // ID único para la transacción
+      details: details // Incluye los detalles necesarios, como la información del producto o servicio
     }, {
       headers: {
-        'Authorization': `Bearer ${MODO_TOKEN}`, // Asegúrate de que el token es correcto
+        'Authorization': `Bearer ${MODO_TOKEN}`, // Asegúrate de que el token es correcto y está autorizado
       }
     });
 
     const { qr_url, deeplink } = response.data;
-    console.log("Respuesta de la API de MODO:", response.data);
+    console.log("Respuesta de la API de MODO:", response.data); // Log completo de la respuesta de MODO
     res.json({ qr_url, deeplink });
-    
   } catch (error) {
-    // Manejo de errores mejorado
-    if (error.response) {
-      console.error("Error en la respuesta de MODO:", error.response.data);
-      res.status(500).json({ message: "Error creando la intención de pago", details: error.response.data });
-    } else {
-      console.error("Error al crear el checkout de MODO:", error.message);
-      res.status(500).json({ message: "Error creando la intención de pago", details: error.message });
-    }
+    console.error("Error al crear el checkout de MODO:", error.response ? error.response.data : error.message); // Log del error con más detalle
+    res.status(500).json({ message: "Error creando la intención de pago" });
   }
 };
+
 
 
 
