@@ -27,12 +27,11 @@ export const createDynamicQR = async (req, res) => {
 
   try {
     // Hacer la solicitud a la API de Mercado Pago para generar el QR dinámico
-    const response = await axios.post('https://api.mercadopago.com/pos/', qrData, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${MERCADOPAGO_API_KEY}`,
-      }
-    });
+ const response = await axios.post('https://api.mercadopago.com/checkout/preferences', qrData, {
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${MERCADOPAGO_API_KEY}`,
+})
 
     console.log('Respuesta de Mercado Pago:', response.data);
 
