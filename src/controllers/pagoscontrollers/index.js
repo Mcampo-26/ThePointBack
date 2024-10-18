@@ -203,7 +203,7 @@ export const createModoCheckout = async (req, res) => {
     // Generar referencia única para la transacción
     const externalReference = `order_${Date.now()}`;
     
-    const response = await axios.post('https://api.modo.com.ar/payments', {
+    const response = await axios.post('https://api.modo.com.ar/api/v1/payments', {
       amount: price,
       currency: 'ARS',
       description: 'Compra en tienda',
