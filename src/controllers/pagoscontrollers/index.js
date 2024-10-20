@@ -262,57 +262,32 @@ export const receiveModoWebhook = async (req, res) => {
 
   try {
     // Extraer la información relevante del webhook
-    const { paymentId, status, amount } = req.body;
+    const { paymentId, status, amount, socketId } = req.body;
 
     console.log('ID del pago recibido desde MODO:', paymentId);
     console.log('Estado del pago:', status);
     console.log('Monto del pago:', amount);
+    console.log('Socket ID:', socketId);
 
     // Verificar si el pago fue aprobado
     if (status === 'APPROVED') {
       console.log('Pago aprobado:', paymentId);
 
-      // Buscar el QR en la base de datos por external_reference (si lo tienes en tu modelo)
-      const qrRecord = await Qr.findOne({ 'transactions.external_reference': paymentId });
+      // Emitir el evento solo al socketId correspondiente
+      io.to(socketId).emit('paymentSuccess', {
+        status: 'approved',
+        paymentId: paymentId,
+        amount: amount, // Puedes enviar más detalles si es necesario
+      });
 
-      if (qrRecord) {
-        // Actualizar el estado de la transacción en el QR
-        const transaction = qrRecord.transactions.find((t) => t.external_reference === paymentId);
-        if (transaction) {
-          transaction.status = 'completed';
-          await qrRecord.save();
-        }
-
-        const socketId = qrRecord.socketId;
-
-        // Emitir el evento solo al socketId correspondiente
-        io.to(socketId).emit('paymentSuccess', {
-          status: 'approved',
-          paymentId: paymentId,
-          amount: amount, // Puedes enviar más detalles si es necesario
-        });
-      }
     } else if (status === 'REJECTED') {
       console.log('Pago rechazado:', paymentId);
 
-      // Actualizar el estado del pago como rechazado en la base de datos
-      const qrRecord = await Qr.findOne({ 'transactions.external_reference': paymentId });
-
-      if (qrRecord) {
-        const transaction = qrRecord.transactions.find((t) => t.external_reference === paymentId);
-        if (transaction) {
-          transaction.status = 'failed';
-          await qrRecord.save();
-        }
-
-        const socketId = qrRecord.socketId;
-
-        // Emitir el evento solo al socketId correspondiente
-        io.to(socketId).emit('paymentFailed', {
-          status: 'rejected',
-          paymentId: paymentId,
-        });
-      }
+      // Emitir el evento solo al socketId correspondiente
+      io.to(socketId).emit('paymentFailed', {
+        status: 'rejected',
+        paymentId: paymentId,
+      });
     }
 
     // Responder a MODO que el webhook fue procesado correctamente
