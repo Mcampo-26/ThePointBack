@@ -38,7 +38,8 @@ app.options('*', cors());
 
 // Configuración de Socket.io
 io.on('connection', (socket) => {
-  console.log('Cliente conectado');
+   console.log(`Cliente conectado con socketId: ${socket.id}`)
+
 
   // Puedes enviar eventos desde el backend al frontend
   socket.on('disconnect', () => {
