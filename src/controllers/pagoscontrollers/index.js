@@ -271,17 +271,33 @@ export const receiveModoWebhook = async (req, res) => {
 
     if (status === 'APPROVED') {
       console.log('Pago aprobado:', paymentId);
+
+      // Log antes de emitir el evento
+      console.log(`Emitiendo evento "paymentSuccess" al socketId: ${socketId}`);
+
+      // Emitir el evento
       io.to(socketId).emit('paymentSuccess', {
         status: 'approved',
         paymentId: paymentId,
         amount: amount,
       });
+
+      // Log después de emitir el evento
+      console.log(`Evento "paymentSuccess" emitido correctamente al socketId: ${socketId}`);
     } else if (status === 'REJECTED') {
       console.log('Pago rechazado:', paymentId);
+
+      // Log antes de emitir el evento
+      console.log(`Emitiendo evento "paymentFailed" al socketId: ${socketId}`);
+
+      // Emitir el evento
       io.to(socketId).emit('paymentFailed', {
         status: 'rejected',
         paymentId: paymentId,
       });
+
+      // Log después de emitir el evento
+      console.log(`Evento "paymentFailed" emitido correctamente al socketId: ${socketId}`);
     }
 
     res.sendStatus(200);  // Confirmación a MODO
