@@ -32,7 +32,7 @@ export const createPaymentLink = async (req, res) => {
       failure: "https://www.mercadopago.com.ar",
       pending: "https://www.mercadopago.com.ar",
     },
-    notification_url: `${process.env.BACKEND_URL}/Pagos/webhook`,
+    notification_url: `${process.env.BACKEND_URL}`,
     auto_return: 'approved',
     external_reference: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     expires: true, // Habilitar la expiración
@@ -228,7 +228,7 @@ export const createModoCheckout = async (req, res) => {
       storeId: storeId, // Aquí se pasa el storeId correcto
       externalIntentionId: externalIntentionId,
       expirationDate: expirationDate,
-      notification_url: `${process.env.BACKEND_URL}/modo/webhook`,
+     
       message: 'Este mensaje se traslada desde la intención de pago hasta el webhook',
     }, {
       headers: {
@@ -252,17 +252,16 @@ export const createModoCheckout = async (req, res) => {
 
 // Controlador para manejar el webhook de MODO (sin almacenar datos)
 export const receiveModoWebhook = async (req, res) => {
-  const io = req.app.locals.io; // Obtener el objeto `io` desde `app.locals`
+  const io = req.app.locals.io;
 
   if (!io) {
     console.error('Error: io no está definido en el contexto del servidor');
     return res.status(500).json({ message: 'Error: io no está definido' });
   }
 
-  console.log('Webhook de MODO recibido:', req.body);
+  console.log('Webhook de MODO recibido con éxito:', req.body);  // Log principal
 
   try {
-    // Extraer la información relevante del webhook
     const { paymentId, status, amount, socketId } = req.body;
 
     console.log('ID del pago recibido desde MODO:', paymentId);
@@ -270,29 +269,38 @@ export const receiveModoWebhook = async (req, res) => {
     console.log('Monto del pago:', amount);
     console.log('Socket ID:', socketId);
 
-    // Verificar si el pago fue aprobado
     if (status === 'APPROVED') {
       console.log('Pago aprobado:', paymentId);
 
-      // Emitir el evento solo al socketId correspondiente
+      // Log antes de emitir el evento
+      console.log(`Emitiendo evento "paymentSuccess" al socketId: ${socketId}`);
+
+      // Emitir el evento
       io.to(socketId).emit('paymentSuccess', {
-        status: 'approved',
+        status: 'ACCEPTED',
         paymentId: paymentId,
-        amount: amount, // Puedes enviar más detalles si es necesario
+        amount: amount,
       });
 
+      // Log después de emitir el evento
+      console.log(`Evento "paymentSuccess" emitido correctamente al socketId: ${socketId}`);
     } else if (status === 'REJECTED') {
       console.log('Pago rechazado:', paymentId);
 
-      // Emitir el evento solo al socketId correspondiente
+      // Log antes de emitir el evento
+      console.log(`Emitiendo evento "paymentFailed" al socketId: ${socketId}`);
+
+      // Emitir el evento
       io.to(socketId).emit('paymentFailed', {
         status: 'rejected',
         paymentId: paymentId,
       });
+
+      // Log después de emitir el evento
+      console.log(`Evento "paymentFailed" emitido correctamente al socketId: ${socketId}`);
     }
 
-    // Responder a MODO que el webhook fue procesado correctamente
-    res.sendStatus(200);
+    res.sendStatus(200);  // Confirmación a MODO
   } catch (error) {
     console.error('Error procesando el webhook de MODO:', error);
     res.status(500).json({ message: 'Error al procesar el webhook de MODO' });
