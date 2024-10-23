@@ -32,7 +32,7 @@ export const createPaymentLink = async (req, res) => {
       failure: "https://www.mercadopago.com.ar",
       pending: "https://www.mercadopago.com.ar",
     },
-    notification_url: `${process.env.BACKEND_URL}/Pagos/webhook`,
+    notification_url: `${process.env.BACKEND_URL}`,
     auto_return: 'approved',
     external_reference: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     expires: true, // Habilitar la expiración
