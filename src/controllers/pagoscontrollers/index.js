@@ -252,17 +252,16 @@ export const createModoCheckout = async (req, res) => {
 
 // Controlador para manejar el webhook de MODO (sin almacenar datos)
 export const receiveModoWebhook = async (req, res) => {
-  const io = req.app.locals.io; // Obtener el objeto `io` desde `app.locals`
+  const io = req.app.locals.io;
 
   if (!io) {
     console.error('Error: io no está definido en el contexto del servidor');
     return res.status(500).json({ message: 'Error: io no está definido' });
   }
 
-  console.log('Webhook de MODO recibido:', req.body);
+  console.log('Webhook de MODO recibido con éxito:', req.body);  // Log principal
 
   try {
-    // Extraer la información relevante del webhook
     const { paymentId, status, amount, socketId } = req.body;
 
     console.log('ID del pago recibido desde MODO:', paymentId);
@@ -270,31 +269,25 @@ export const receiveModoWebhook = async (req, res) => {
     console.log('Monto del pago:', amount);
     console.log('Socket ID:', socketId);
 
-    // Verificar si el pago fue aprobado
     if (status === 'APPROVED') {
       console.log('Pago aprobado:', paymentId);
-
-      // Emitir el evento solo al socketId correspondiente
       io.to(socketId).emit('paymentSuccess', {
         status: 'approved',
         paymentId: paymentId,
-        amount: amount, // Puedes enviar más detalles si es necesario
+        amount: amount,
       });
-
     } else if (status === 'REJECTED') {
       console.log('Pago rechazado:', paymentId);
-
-      // Emitir el evento solo al socketId correspondiente
       io.to(socketId).emit('paymentFailed', {
         status: 'rejected',
         paymentId: paymentId,
       });
     }
 
-    // Responder a MODO que el webhook fue procesado correctamente
-    res.sendStatus(200);
+    res.sendStatus(200);  // Confirmación a MODO
   } catch (error) {
     console.error('Error procesando el webhook de MODO:', error);
     res.status(500).json({ message: 'Error al procesar el webhook de MODO' });
   }
 };
+
