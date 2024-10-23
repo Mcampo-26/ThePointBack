@@ -277,7 +277,7 @@ export const receiveModoWebhook = async (req, res) => {
 
       // Emitir el evento
       io.to(socketId).emit('paymentSuccess', {
-        status: 'approved',
+        status: 'ACCEPTED',
         paymentId: paymentId,
         amount: amount,
       });
