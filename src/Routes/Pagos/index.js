@@ -20,6 +20,7 @@ router.post('/save_payment_details', savePaymentDetails);
 
 receiveModoWebhook
 router.post('/webhook', receiveWebhook); // Ruta para recibir los webhooks de Mercado Pago
-router.post('/webhook/modo', receiveModoWebhook);
+//router.post('/webhook/modo', receiveModoWebhook);
+router.post('/', receiveModoWebhook);
 
 export default router;
