@@ -264,6 +264,7 @@ export const receiveModoWebhook = async (req, res) => {
 
   try {
     const { paymentId, status, amount, socketId } = req.body;
+    
 
     console.log('ID del pago recibido desde MODO:', paymentId);
     console.log('Estado del pago:', status);
