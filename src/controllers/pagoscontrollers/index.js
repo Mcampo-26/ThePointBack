@@ -202,7 +202,7 @@ export const receiveWebhook = async (req, res) => {
 
 
 export const createModoCheckout = async (req, res) => {
-  const { price, details } = req.body;
+  const { price, details,socketId } = req.body;
 
   // Log para verificar qué datos se reciben
   console.log("Recibiendo solicitud para crear checkout de MODO con precio:", price, "y detalles:", details);
