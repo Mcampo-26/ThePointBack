@@ -228,6 +228,7 @@ export const createModoCheckout = async (req, res) => {
       storeId: storeId, // Aquí se pasa el storeId correcto
       externalIntentionId: externalIntentionId,
       expirationDate: expirationDate,
+      socketId: socketId,
      
       message: 'Este mensaje se traslada desde la intención de pago hasta el webhook',
     }, {
