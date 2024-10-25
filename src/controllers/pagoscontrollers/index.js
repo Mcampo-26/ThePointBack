@@ -135,51 +135,14 @@ export const receiveWebhook = async (req, res) => {
       if (paymentDetails.data.status === 'approved') {
         console.log('Pago aprobado:', paymentDetails.data);
 
-        // Buscar el QR en la base de datos por external_reference
-        const qrRecord = await Qr.findOne({ 'transactions.external_reference': paymentDetails.data.external_reference });
-
-        if (qrRecord) {
-          // Actualizar el estado de la transacción en el QR
-          const transaction = qrRecord.transactions.find(
-            (t) => t.external_reference === paymentDetails.data.external_reference
-          );
-          if (transaction) {
-            transaction.status = 'completed';
-            await qrRecord.save();
-          }
-
-          const socketId = qrRecord.socketId;
-
-          // Emitir el evento solo al socketId correspondiente
-          io.to(socketId).emit('paymentSuccess', {
-            status: 'approved',
-            paymentId: paymentDetails.data.id,
-            amount: paymentDetails.data.transaction_amount, // Puedes enviar más detalles si es necesario
-          });
-        }
-      } else if (paymentDetails.data.status === 'rejected') {
-        console.log('Pago rechazado:', paymentDetails.data);
-
-        // Actualizar el estado del pago como rechazado en la base de datos
-        const qrRecord = await Qr.findOne({ 'transactions.external_reference': paymentDetails.data.external_reference });
-
-        if (qrRecord) {
-          const transaction = qrRecord.transactions.find(
-            (t) => t.external_reference === paymentDetails.data.external_reference
-          );
-          if (transaction) {
-            transaction.status = 'failed';
-            await qrRecord.save();
-          }
-
-          const socketId = qrRecord.socketId;
-
-          // Emitir el evento solo al socketId correspondiente
-          io.to(socketId).emit('paymentFailed', {
-            status: 'rejected',
-            paymentId: paymentDetails.data.id,
-          });
-        }
+        // Emitir un evento a través de WebSockets a todos los clientes conectados
+        io.emit('paymentSuccess', {
+          status: 'approved',
+          paymentId: paymentDetails.data.id,
+          amount: paymentDetails.data.transaction_amount, // Puedes enviar más detalles si es necesario
+        });
+      }else if (paymentDetails.data.status === 'rejected') {
+        io.emit('paymentFailed', { status: 'rejected', paymentId: paymentDetails.data.id });
       }
 
       // Responder a Mercado Pago que el webhook fue procesado correctamente
@@ -193,7 +156,6 @@ export const receiveWebhook = async (req, res) => {
     res.status(500).json({ message: 'Error al procesar el webhook' });
   }
 };
-
 
 
 
@@ -242,13 +204,6 @@ export const createModoCheckout = async (req, res) => {
     res.status(500).json({ message: "Error creando la intención de pago" });
   }
 };
-
-
-
-
-
-
-
 
 
 
