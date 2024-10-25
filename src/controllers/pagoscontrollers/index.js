@@ -227,9 +227,9 @@ export const createModoCheckout = async (req, res) => {
       externalIntentionId, // Usa el ID generado
       expirationDate,
       socketId, // Enviar el socketId en la petición
-
-      message: 'Este mensaje se traslada desde la intención de pago hasta el webhook',
-    }, {
+      message: socketId,},
+      
+      {
       headers: {
         'Authorization': `Bearer ${MODO_TOKEN}`,
       }
@@ -263,39 +263,28 @@ export const receiveModoWebhook = async (req, res) => {
 
   console.log('Webhook de MODO recibido con éxito:', req.body);
 
-
   try {
-    const { external_intention_id: externalIntentionId, status, amount } = req.body;
-    console.log('Buscando transacción con externalIntentionId:', externalIntentionId);
+    const { external_intention_id: externalIntentionId, status, amount, message } = req.body;
+    const socketId = message; // Recibir socketId desde message directamente
 
-    // Buscar la transacción en MongoDB
-    const transaction = await Transaction.findOne({ externalIntentionId });
-
-    if (!transaction) {
-      console.error('Error: Transacción no encontrada para esta intención externa');
-      return res.status(400).json({ message: 'Transacción no encontrada para esta intención' }); 
+    if (!socketId) {
+      console.error('Error: Socket ID no proporcionado en el mensaje');
+      return res.status(400).json({ message: 'Socket ID no proporcionado' });
     }
-    console.log('Transacción encontrada:', transaction);
 
-    const { socketId } = transaction;
-
-    console.log('Socket ID recuperado:', socketId);
+    console.log('Socket ID recuperado del mensaje:', socketId);
 
     const eventType = status === 'APPROVED' ? 'paymentSuccess' : 'paymentFailed';
 
-    // Emitir evento al socket correspondiente
+    // Emitir el evento directamente al socket correspondiente
     io.to(socketId).emit(eventType, {
       status,
       paymentId: externalIntentionId,
       amount,
     });
-    console.log(`Evento "${eventType}" emitido correctamente al socketId: ${socketId}`);
 
-
-    // Borrar la transacción de la base de datos después de emitir el evento
-    await transaction.deleteOne();
-
-    res.sendStatus(200);
+    console.log(`Evento "${eventType}" emitido correctamente al socket ID: ${socketId}`);
+    res.sendStatus(200); // Confirmar recepción del webhook
   } catch (error) {
     console.error('Error procesando el webhook de MODO:', error);
     res.status(500).json({ message: 'Error al procesar el webhook de MODO' });
