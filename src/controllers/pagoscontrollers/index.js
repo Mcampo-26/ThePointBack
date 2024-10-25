@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { MERCADOPAGO_API_KEY, MODO_TOKEN} from '../../Config/index.js';
+import Transaction from '../models/Transaction.js'; // I
 
 
 
@@ -195,52 +196,43 @@ export const receiveWebhook = async (req, res) => {
 
 
 
-
-
-
-
-
-
 export const createModoCheckout = async (req, res) => {
-  const { price, details } = req.body;
+  const { price, details, socketId } = req.body;
 
-  // Log para verificar qué datos se reciben
-  console.log("Recibiendo solicitud para crear checkout de MODO con precio:", price, "y detalles:", details);
-
-  if (!details || details.length === 0) {
-    console.log("Detalles faltantes en la solicitud");
-    return res.status(400).json({ message: "Faltan los detalles de los productos" });
+  if (!details || details.length === 0 || !socketId) {
+    return res.status(400).json({ message: 'Faltan los detalles de los productos o el socketId' });
   }
+
+  // Generar un `externalIntentionId` único
+  const externalIntentionId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  console.log('Generado transactionId:', transactionId);
+
+
+  // Crear y guardar la transacción en MongoDB
+  await Transaction.create({ externalIntentionId, socketId, amount: price });
 
   try {
     const modoURL = 'https://merchants.playdigital.com.ar/merchants/ecommerce/payment-intention';
-    
-    const storeId = 'b56f4d39-afed-47e5-84c4-664b96668915'; // StoreId correcto
-    const externalIntentionId = '1234'; // Puedes cambiar este valor si es necesario
-    const expirationDate = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // Fecha de expiración 10 minutos
+    const storeId = 'b56f4d39-afed-47e5-84c4-664b96668915';
+    const expirationDate = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
-    // Enviar la solicitud a MODO
     const response = await axios.post(modoURL, {
       productName: details[0].productName,
       price: price,
       quantity: details[0].quantity,
       currency: 'ARS',
-      storeId: storeId, // Aquí se pasa el storeId correcto
-      externalIntentionId: externalIntentionId,
-      expirationDate: expirationDate,
-     
+      storeId,
+      externalIntentionId, // Usa el ID generado
+      expirationDate,
       message: 'Este mensaje se traslada desde la intención de pago hasta el webhook',
     }, {
       headers: {
-        'Authorization': `Bearer ${MODO_TOKEN}`, // Asegúrate de que el token es correcto
+        'Authorization': `Bearer ${MODO_TOKEN}`,
       }
     });
 
-    console.log("Respuesta de la API de MODO:", response.data);
-    
     const { qr, deeplink } = response.data;
     res.json({ qr, deeplink });
-
   } catch (error) {
     console.error("Error al crear el checkout de MODO:", error.response ? error.response.data : error.message);
     res.status(500).json({ message: "Error creando la intención de pago" });
@@ -250,57 +242,55 @@ export const createModoCheckout = async (req, res) => {
 
 
 
+
+
+
+
+
+
 // Controlador para manejar el webhook de MODO (sin almacenar datos)
 export const receiveModoWebhook = async (req, res) => {
   const io = req.app.locals.io;
 
   if (!io) {
-    console.error('Error: io no está definido en el contexto del servidor');
     return res.status(500).json({ message: 'Error: io no está definido' });
   }
 
-  console.log('Webhook de MODO recibido con éxito:', req.body);  // Log principal
+  console.log('Webhook de MODO recibido con éxito:', req.body);
+
 
   try {
-    const { paymentId, status, amount, socketId } = req.body;
+    const { external_intention_id: externalIntentionId, status, amount } = req.body;
+    console.log('Buscando transacción con externalIntentionId:', externalIntentionId);
 
-    console.log('ID del pago recibido desde MODO:', paymentId);
-    console.log('Estado del pago:', status);
-    console.log('Monto del pago:', amount);
-    console.log('Socket ID:', socketId);
+    // Buscar la transacción en MongoDB
+    const transaction = await Transaction.findOne({ externalIntentionId });
 
-    if (status === 'APPROVED') {
-      console.log('Pago aprobado:', paymentId);
-
-      // Log antes de emitir el evento
-      console.log(`Emitiendo evento "paymentSuccess" al socketId: ${socketId}`);
-
-      // Emitir el evento
-      io.to(socketId).emit('paymentSuccess', {
-        status: 'ACCEPTED',
-        paymentId: paymentId,
-        amount: amount,
-      });
-
-      // Log después de emitir el evento
-      console.log(`Evento "paymentSuccess" emitido correctamente al socketId: ${socketId}`);
-    } else if (status === 'REJECTED') {
-      console.log('Pago rechazado:', paymentId);
-
-      // Log antes de emitir el evento
-      console.log(`Emitiendo evento "paymentFailed" al socketId: ${socketId}`);
-
-      // Emitir el evento
-      io.to(socketId).emit('paymentFailed', {
-        status: 'rejected',
-        paymentId: paymentId,
-      });
-
-      // Log después de emitir el evento
-      console.log(`Evento "paymentFailed" emitido correctamente al socketId: ${socketId}`);
+    if (!transaction) {
+      console.error('Error: Transacción no encontrada para esta intención externa');
+      return res.status(400).json({ message: 'Transacción no encontrada para esta intención' }); 
     }
+    console.log('Transacción encontrada:', transaction);
 
-    res.sendStatus(200);  // Confirmación a MODO
+    const { socketId } = transaction;
+
+    console.log('Socket ID recuperado:', socketId);
+
+    const eventType = status === 'APPROVED' ? 'paymentSuccess' : 'paymentFailed';
+
+    // Emitir evento al socket correspondiente
+    io.to(socketId).emit(eventType, {
+      status,
+      paymentId: externalIntentionId,
+      amount,
+    });
+    console.log(`Evento "${eventType}" emitido correctamente al socketId: ${socketId}`);
+
+
+    // Borrar la transacción de la base de datos después de emitir el evento
+    await transaction.deleteOne();
+
+    res.sendStatus(200);
   } catch (error) {
     console.error('Error procesando el webhook de MODO:', error);
     res.status(500).json({ message: 'Error al procesar el webhook de MODO' });
