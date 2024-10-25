@@ -198,6 +198,7 @@ export const receiveWebhook = async (req, res) => {
 
 export const createModoCheckout = async (req, res) => {
   const { price, details, socketId } = req.body;
+  console.log("Socket ID recibido en el backend:", socketId);
 
   if (!details || details.length === 0 || !socketId) {
     return res.status(400).json({ message: 'Faltan los detalles de los productos o el socketId' });
