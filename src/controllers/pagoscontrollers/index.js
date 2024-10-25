@@ -118,38 +118,69 @@ export const receiveWebhook = async (req, res) => {
   console.log('Webhook recibido:', req.body);
 
   try {
-    const { data, status, socketId } = req.body;
+    const { topic, resource, data, status, socketId } = req.body;
 
-    // Verificar que `data` y `data.id` existen
-    const paymentId = data?.id;
-    if (!paymentId) {
-      console.error('ID de pago no encontrado en los datos recibidos');
-      return res.status(400).json({ message: 'ID de pago no encontrado' });
-    }
+    if (topic === 'merchant_order') {
+      // Manejo del topic 'merchant_order'
+      try {
+        const orderResponse = await axios.get(resource, {
+          headers: { Authorization: `Bearer ${MERCADOPAGO_API_KEY}` },
+        });
 
-    // Verificar que `status` está presente
-    if (!status) {
-      console.error('Estado del pago no especificado');
-      return res.status(400).json({ message: 'Estado del pago no especificado' });
-    }
+        const paymentStatus = orderResponse.data.payments[0]?.status;
+        const paymentId = orderResponse.data.payments[0]?.id;
+        console.log('Detalles de la orden:', orderResponse.data);
 
-    // Emitir el evento en función del `status` recibido
-    if (status === 'approved') {
-      console.log('Pago aprobado:', paymentId);
-      io.to(socketId).emit('paymentSuccess', { status, paymentId });
-    } else if (status === 'rejected') {
-      console.log('Pago rechazado:', paymentId);
-      io.to(socketId).emit('paymentFailed', { status, paymentId });
+        if (!paymentId) {
+          console.error('ID de pago no encontrado en los datos de la orden');
+          return res.status(400).json({ message: 'ID de pago no encontrado' });
+        }
+
+        // Emitir el evento basado en el estado de pago
+        if (paymentStatus === 'approved') {
+          console.log('Pago aprobado:', paymentId);
+          io.to(socketId).emit('paymentSuccess', { status: 'approved', paymentId });
+        } else if (paymentStatus === 'rejected') {
+          console.log('Pago rechazado:', paymentId);
+          io.to(socketId).emit('paymentFailed', { status: 'rejected', paymentId });
+        } else {
+          console.log('Estado de pago desconocido:', paymentStatus);
+        }
+
+        return res.sendStatus(200);
+      } catch (error) {
+        console.error('Error al obtener detalles de la orden:', error.message);
+        return res.status(500).json({ message: 'Error al procesar el merchant_order' });
+      }
+    } else if (topic === 'payment') {
+      // Lógica para el topic 'payment' (como antes)
+      const paymentId = data?.id;
+      if (!paymentId) {
+        console.error('ID de pago no encontrado en los datos recibidos');
+        return res.status(400).json({ message: 'ID de pago no encontrado' });
+      }
+
+      if (status === 'approved') {
+        console.log('Pago aprobado:', paymentId);
+        io.to(socketId).emit('paymentSuccess', { status, paymentId });
+      } else if (status === 'rejected') {
+        console.log('Pago rechazado:', paymentId);
+        io.to(socketId).emit('paymentFailed', { status, paymentId });
+      } else {
+        console.log('Estado de pago desconocido:', status);
+      }
+
+      res.sendStatus(200);
     } else {
-      console.log('Estado de pago desconocido:', status);
+      console.log('Tipo de evento desconocido:', topic);
+      res.sendStatus(200); // Responder con éxito aunque el tipo sea desconocido
     }
-
-    res.sendStatus(200); // Responder que el webhook se procesó correctamente
   } catch (error) {
     console.error('Error procesando el webhook:', error.message || error);
     res.status(500).json({ message: 'Error al procesar el webhook' });
   }
 };
+
 
 
 
