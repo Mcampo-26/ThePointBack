@@ -108,7 +108,7 @@ export const savePaymentDetails = async (req, res) => {
 
 
 export const receiveWebhook = async (req, res) => {
-  const io = req.app.locals.io; // Obtener el objeto `io` desde `app.locals`
+  const io = req.app.locals.io;
 
   if (!io) {
     console.error('Error: io no está definido en el contexto del servidor');
@@ -118,44 +118,49 @@ export const receiveWebhook = async (req, res) => {
   console.log('Webhook recibido:', req.body);
 
   try {
-    const { type, data } = req.body;
+    const { type, data, status, socketId } = req.body;
 
-    if (type === 'payment') {
-      const paymentId = data.id;
-      console.log('ID del pago recibido:', paymentId);
-
-      // Obtener detalles del pago desde Mercado Pago
-      const paymentDetails = await axios.get(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-        headers: {
-          Authorization: `Bearer ${MERCADOPAGO_API_KEY}`,
-        },
-      });
-
-      // Verificar si el pago fue aprobado
-      if (paymentDetails.data.status === 'approved') {
-        console.log('Pago aprobado:', paymentDetails.data);
-
-        // Emitir un evento a través de WebSockets a todos los clientes conectados
-        io.emit('paymentSuccess', {
-          status: 'approved',
-          paymentId: paymentDetails.data.id,
-          amount: paymentDetails.data.transaction_amount, // Puedes enviar más detalles si es necesario
-        });
-      }else if (paymentDetails.data.status === 'rejected') {
-        io.emit('paymentFailed', { status: 'rejected', paymentId: paymentDetails.data.id });
-      }
-
-      // Responder a Mercado Pago que el webhook fue procesado correctamente
-      res.sendStatus(200);
-    } else {
+    // Validación para asegurar que se recibe el tipo "payment"
+    if (type !== 'payment') {
       console.log('Tipo de evento desconocido:', type);
-      res.sendStatus(200); // Responde 200 incluso si el tipo de evento no es "payment"
+      return res.sendStatus(200);
     }
+
+    const paymentId = data?.id;
+    if (!paymentId) {
+      console.error('ID de pago no encontrado en los datos recibidos');
+      return res.status(400).json({ message: 'ID de pago no encontrado' });
+    }
+
+    // Obtener detalles del pago desde Mercado Pago
+    const paymentDetails = await axios.get(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+      headers: {
+        Authorization: `Bearer ${MERCADOPAGO_API_KEY}`,
+      },
+    });
+
+    // Verificar si el pago fue aprobado
+    if (paymentDetails.data.status === 'approved') {
+      console.log('Pago aprobado:', paymentDetails.data);
+
+      // Emitir un evento a través de WebSockets a todos los clientes conectados
+      io.emit('paymentSuccess', {
+        status: 'approved',
+        paymentId: paymentDetails.data.id,
+        amount: paymentDetails.data.transaction_amount, 
+      });
+    } else if (paymentDetails.data.status === 'rejected') {
+      io.emit('paymentFailed', { status: 'rejected', paymentId: paymentDetails.data.id });
+    }
+
+    // Confirmar que el webhook se procesó correctamente
+    res.sendStatus(200);
   } catch (error) {
-    console.error('Error procesando el webhook:', error);
+    console.error('Error procesando el webhook:', error.message || error);
     res.status(500).json({ message: 'Error al procesar el webhook' });
   }
 };
+
 
 
 
