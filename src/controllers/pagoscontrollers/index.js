@@ -260,11 +260,16 @@ export const receiveModoWebhook = async (req, res) => {
     return res.status(500).json({ message: 'Error: io no está definido' });
   }
 
-  console.log('Webhook de MODO recibido con éxito:', req.body);  // Log principal
+  console.log('Webhook de MODO recibido con éxito:', req.body);
 
   try {
     const { paymentId, status, amount, socketId } = req.body;
-    
+
+    // Validar si `socketId` está presente
+    if (!socketId) {
+      console.error('Error: Socket ID no proporcionado');
+      return res.status(400).json({ message: 'Socket ID no proporcionado' });
+    }
 
     console.log('ID del pago recibido desde MODO:', paymentId);
     console.log('Estado del pago:', status);
@@ -272,39 +277,24 @@ export const receiveModoWebhook = async (req, res) => {
     console.log('Socket ID:', socketId);
 
     if (status === 'APPROVED') {
-      console.log('Pago aprobado:', paymentId);
-
-      // Log antes de emitir el evento
-      console.log(`Emitiendo evento "paymentSuccess" al socketId: ${socketId}`);
-
-      // Emitir el evento
       io.to(socketId).emit('paymentSuccess', {
         status: 'ACCEPTED',
         paymentId: paymentId,
         amount: amount,
       });
-
-      // Log después de emitir el evento
       console.log(`Evento "paymentSuccess" emitido correctamente al socketId: ${socketId}`);
     } else if (status === 'REJECTED') {
-      console.log('Pago rechazado:', paymentId);
-
-      // Log antes de emitir el evento
-      console.log(`Emitiendo evento "paymentFailed" al socketId: ${socketId}`);
-
-      // Emitir el evento
       io.to(socketId).emit('paymentFailed', {
         status: 'rejected',
         paymentId: paymentId,
       });
-
-      // Log después de emitir el evento
       console.log(`Evento "paymentFailed" emitido correctamente al socketId: ${socketId}`);
     }
 
-    res.sendStatus(200);  // Confirmación a MODO
+    res.sendStatus(200);
   } catch (error) {
     console.error('Error procesando el webhook de MODO:', error);
     res.status(500).json({ message: 'Error al procesar el webhook de MODO' });
   }
 };
+
