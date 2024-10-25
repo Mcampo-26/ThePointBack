@@ -173,7 +173,6 @@ export const createModoCheckout = async (req, res) => {
   console.log('Generado externalIntentionId:', externalIntentionId);
 
   // Crear y guardar la transacción en MongoDB
-  await Transaction.create({ externalIntentionId, socketId, amount: price });
 
   try {
     const modoURL = 'https://merchants.playdigital.com.ar/merchants/ecommerce/payment-intention';
