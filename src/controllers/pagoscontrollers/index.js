@@ -199,48 +199,50 @@ export const receiveWebhook = async (req, res) => {
 
 
 
-const socketMap = new Map();
-
-// Método para generar el QR con el enlace directo de MODO
 export const createModoCheckout = async (req, res) => {
-  const { price, details, socketId } = req.body;
+  const { price, details,socketId } = req.body;
 
-  // Verificar que los detalles y el socketId estén presentes
-  if (!details || details.length === 0 || !socketId) {
-    return res.status(400).json({ message: "Faltan los detalles de los productos o el socketId" });
+  // Log para verificar qué datos se reciben
+  console.log("Recibiendo solicitud para crear checkout de MODO con precio:", price, "y detalles:", details);
+
+  if (!details || details.length === 0) {
+    console.log("Detalles faltantes en la solicitud");
+    return res.status(400).json({ message: "Faltan los detalles de los productos" });
   }
 
   try {
-    // Crear un transactionId único para identificar la transacción
-    const transactionId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    socketMap.set(transactionId, socketId); // Almacenar el socketId con el transactionId
-
     const modoURL = 'https://merchants.playdigital.com.ar/merchants/ecommerce/payment-intention';
-    const storeId = 'b56f4d39-afed-47e5-84c4-664b96668915';
-    const expirationDate = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // Fecha de expiración en 10 minutos
+    
+    const storeId = 'b56f4d39-afed-47e5-84c4-664b96668915'; // StoreId correcto
+    const externalIntentionId = '1234'; // Puedes cambiar este valor si es necesario
+    const expirationDate = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // Fecha de expiración 10 minutos
 
-    // Hacer la solicitud a MODO para crear la intención de pago
+    // Enviar la solicitud a MODO
     const response = await axios.post(modoURL, {
       productName: details[0].productName,
       price: price,
       quantity: details[0].quantity,
       currency: 'ARS',
-      storeId: storeId,
-      externalIntentionId: transactionId, // Utilizar el transactionId generado
+      storeId: storeId, // Aquí se pasa el storeId correcto
+      externalIntentionId: externalIntentionId,
       expirationDate: expirationDate,
+      socketId: socketId,
+     
       message: 'Este mensaje se traslada desde la intención de pago hasta el webhook',
     }, {
       headers: {
-        'Authorization': `Bearer ${MODO_TOKEN}`
+        'Authorization': `Bearer ${MODO_TOKEN}`, // Asegúrate de que el token es correcto
       }
     });
 
-    // Devolver el QR y el deeplink al frontend
+    console.log("Respuesta de la API de MODO:", response.data);
+    
     const { qr, deeplink } = response.data;
     res.json({ qr, deeplink });
+
   } catch (error) {
-    console.error("Error al crear la intención de pago:", error);
-    res.status(500).json({ message: "Error creando la intención de pago", error: error.message });
+    console.error("Error al crear el checkout de MODO:", error.response ? error.response.data : error.message);
+    res.status(500).json({ message: "Error creando la intención de pago" });
   }
 };
 
