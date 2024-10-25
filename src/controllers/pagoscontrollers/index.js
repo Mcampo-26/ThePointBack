@@ -196,6 +196,8 @@ export const receiveWebhook = async (req, res) => {
 
 
 
+
+
 export const createModoCheckout = async (req, res) => {
   const { price, details, socketId } = req.body;
   console.log("Socket ID recibido en el backend:", socketId);
@@ -206,8 +208,7 @@ export const createModoCheckout = async (req, res) => {
 
   // Generar un `externalIntentionId` único
   const externalIntentionId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  console.log('Generado transactionId:', transactionId);
-
+  console.log('Generado externalIntentionId:', externalIntentionId);
 
   // Crear y guardar la transacción en MongoDB
   await Transaction.create({ externalIntentionId, socketId, amount: price });
@@ -225,6 +226,8 @@ export const createModoCheckout = async (req, res) => {
       storeId,
       externalIntentionId, // Usa el ID generado
       expirationDate,
+      socketId, // Enviar el socketId en la petición
+
       message: 'Este mensaje se traslada desde la intención de pago hasta el webhook',
     }, {
       headers: {
@@ -239,6 +242,7 @@ export const createModoCheckout = async (req, res) => {
     res.status(500).json({ message: "Error creando la intención de pago" });
   }
 };
+
 
 
 
