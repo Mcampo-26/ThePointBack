@@ -120,13 +120,20 @@ export const receiveWebhook = async (req, res) => {
   try {
     const { data, status, socketId } = req.body;
 
+    // Verificar que `data` y `data.id` existen
     const paymentId = data?.id;
     if (!paymentId) {
       console.error('ID de pago no encontrado en los datos recibidos');
       return res.status(400).json({ message: 'ID de pago no encontrado' });
     }
 
-    // Verificar el estado del pago y emitir el evento en función del status recibido
+    // Verificar que `status` está presente
+    if (!status) {
+      console.error('Estado del pago no especificado');
+      return res.status(400).json({ message: 'Estado del pago no especificado' });
+    }
+
+    // Emitir el evento en función del `status` recibido
     if (status === 'approved') {
       console.log('Pago aprobado:', paymentId);
       io.to(socketId).emit('paymentSuccess', { status, paymentId });
@@ -143,7 +150,6 @@ export const receiveWebhook = async (req, res) => {
     res.status(500).json({ message: 'Error al procesar el webhook' });
   }
 };
-
 
 
 
