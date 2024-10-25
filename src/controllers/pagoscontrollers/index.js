@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { MERCADOPAGO_API_KEY, MODO_TOKEN} from '../../Config/index.js';
-import Transaction from '../../models/Transaction.js'; // I
+
 
 
 
