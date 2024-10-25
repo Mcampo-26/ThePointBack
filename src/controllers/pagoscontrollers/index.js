@@ -107,6 +107,8 @@ export const savePaymentDetails = async (req, res) => {
 
 
 
+import axios from 'axios';
+
 export const receiveWebhook = async (req, res) => {
   const io = req.app.locals.io; // Obtener el objeto `io` desde `app.locals`
 
@@ -118,38 +120,44 @@ export const receiveWebhook = async (req, res) => {
   console.log('Webhook recibido:', req.body);
 
   try {
-    const { type, data } = req.body;
+    const { data, status } = req.body;
 
-    if (type === 'payment') {
+    // Verificar que el ID de pago y el estado existan
+    if (data && data.id && status) {
       const paymentId = data.id;
       console.log('ID del pago recibido:', paymentId);
+      console.log('Estado del pago recibido:', status);
 
-      // Obtener detalles del pago desde Mercado Pago
+      // Obtener detalles del pago desde Mercado Pago si es necesario
       const paymentDetails = await axios.get(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
         headers: {
-          Authorization: `Bearer ${MERCADOPAGO_API_KEY}`,
+          Authorization: `Bearer ${process.env.MERCADOPAGO_API_KEY}`, // Usa la variable de entorno para el token
         },
       });
 
-      // Verificar si el pago fue aprobado
-      if (paymentDetails.data.status === 'approved') {
+      // Emitir evento basado en el estado recibido
+      if (status === 'approved') {
         console.log('Pago aprobado:', paymentDetails.data);
 
-        // Emitir un evento a través de WebSockets a todos los clientes conectados
         io.emit('paymentSuccess', {
           status: 'approved',
-          paymentId: paymentDetails.data.id,
-          amount: paymentDetails.data.transaction_amount, // Puedes enviar más detalles si es necesario
+          paymentId,
+          amount: paymentDetails.data.transaction_amount, // Detalles opcionales
         });
-      }else if (paymentDetails.data.status === 'rejected') {
-        io.emit('paymentFailed', { status: 'rejected', paymentId: paymentDetails.data.id });
+      } else if (status === 'rejected') {
+        console.log('Pago rechazado:', paymentDetails.data);
+
+        io.emit('paymentFailed', {
+          status: 'rejected',
+          paymentId,
+        });
       }
 
       // Responder a Mercado Pago que el webhook fue procesado correctamente
       res.sendStatus(200);
     } else {
-      console.log('Tipo de evento desconocido:', type);
-      res.sendStatus(200); // Responde 200 incluso si el tipo de evento no es "payment"
+      console.log('Datos del webhook incompletos o tipo de evento desconocido.');
+      res.sendStatus(200);
     }
   } catch (error) {
     console.error('Error procesando el webhook:', error);
