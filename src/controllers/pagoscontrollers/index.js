@@ -199,10 +199,9 @@ export const receiveWebhook = async (req, res) => {
 
 
 
-
-
 const socketMap = new Map();
 
+// Método para generar el QR con el enlace directo de MODO
 export const createModoCheckout = async (req, res) => {
   const { price, details, socketId } = req.body;
 
@@ -212,21 +211,22 @@ export const createModoCheckout = async (req, res) => {
   }
 
   try {
-    // Crear un transactionId único
+    // Crear un transactionId único para identificar la transacción
     const transactionId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     socketMap.set(transactionId, socketId); // Almacenar el socketId con el transactionId
 
     const modoURL = 'https://merchants.playdigital.com.ar/merchants/ecommerce/payment-intention';
     const storeId = 'b56f4d39-afed-47e5-84c4-664b96668915';
-    const expirationDate = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    const expirationDate = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // Fecha de expiración en 10 minutos
 
+    // Hacer la solicitud a MODO para crear la intención de pago
     const response = await axios.post(modoURL, {
       productName: details[0].productName,
       price: price,
       quantity: details[0].quantity,
       currency: 'ARS',
       storeId: storeId,
-      externalIntentionId: transactionId, // Utilizar el transactionId en lugar de externalIntentionId fijo
+      externalIntentionId: transactionId, // Utilizar el transactionId generado
       expirationDate: expirationDate,
       message: 'Este mensaje se traslada desde la intención de pago hasta el webhook',
     }, {
@@ -235,13 +235,14 @@ export const createModoCheckout = async (req, res) => {
       }
     });
 
+    // Devolver el QR y el deeplink al frontend
     const { qr, deeplink } = response.data;
     res.json({ qr, deeplink });
   } catch (error) {
+    console.error("Error al crear la intención de pago:", error);
     res.status(500).json({ message: "Error creando la intención de pago", error: error.message });
   }
 };
-
 
 // Controlador para manejar el webhook de MODO (sin almacenar datos)
 export const receiveModoWebhook = async (req, res) => {
@@ -251,7 +252,7 @@ export const receiveModoWebhook = async (req, res) => {
     return res.status(500).json({ message: 'Error: io no está definido' });
   }
 
-  const { external_intention_id, status, amount } = req.body; // MODO envía external_intention_id
+  const { external_intention_id, status, amount } = req.body; // MODO envía el external_intention_id
 
   // Recuperar el socketId utilizando el transactionId
   const socketId = socketMap.get(external_intention_id);
@@ -273,7 +274,7 @@ export const receiveModoWebhook = async (req, res) => {
     amount,
   });
 
-  // Después de emitir el evento, eliminar el socketId de socketMap
+  // Después de emitir el evento, eliminar el socketId del socketMap
   socketMap.delete(external_intention_id);
 
   res.sendStatus(200);
