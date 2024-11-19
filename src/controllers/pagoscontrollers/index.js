@@ -4,11 +4,8 @@ import { MERCADOPAGO_API_KEY, MODO_TOKEN} from '../../Config/index.js';
 
 
 
-
-
-// Método para y generar el QR con el enlace directo
 export const createPaymentLink = async (req, res) => {
-  const { title, price,socketId  } = req.body;
+  const { title, price, socketId } = req.body;
 
   // Verificación de datos
   if (!title || !price || isNaN(price)) {
@@ -23,7 +20,7 @@ export const createPaymentLink = async (req, res) => {
         unit_price: parseFloat(price), // Precio total
         quantity: 1, // Una sola compra
         currency_id: 'ARS',
-      }
+      },
     ],
     payer: {
       email: 'test_user_123456@test.com', // Cambiar por el correo del usuario
@@ -37,10 +34,7 @@ export const createPaymentLink = async (req, res) => {
     auto_return: 'approved',
     external_reference: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     expires: true, // Habilitar la expiración
-    external_id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}` // Expira en 50 segundos // Genera una referencia única para cada transacción
   };
-
-  console.log('URL de éxito:', `${process.env.URL.trim()}/payment-result/success`);
 
   try {
     // Hacer solicitud a la API de Mercado Pago
@@ -48,28 +42,22 @@ export const createPaymentLink = async (req, res) => {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${MERCADOPAGO_API_KEY}`, // Asegúrate de tener la clave correcta
-      }
+      },
     });
 
-    const paymentLink = response.data.init_point; // Enlace de pago web
+    // Log completo de la respuesta
+    console.log('Respuesta completa de Mercado Pago:', JSON.stringify(response.data, null, 2));
 
-    // Generar deep link para abrir directamente en la app de Mercado Pago
-    const deepLink = paymentLink.replace('https://www.mercadopago.com/', 'mercadopago://');
-
-    // Devolver el deep link al frontend
-    res.json({ paymentLink: deepLink });
+    // Enviar toda la respuesta al frontend para análisis
+    res.json(response.data);
   } catch (error) {
     console.error('Error al crear la preferencia de pago:', error.response ? error.response.data : error.message);
     res.status(500).json({ 
       message: 'Error al crear la preferencia de pago', 
-      error: error.message,
+      error: error.response ? error.response.data : error.message,
     });
   }
 };
-
-
-
-
 
 export const savePaymentDetails = async (req, res) => {
   const { userId, amount,  items } = req.body;
