@@ -114,30 +114,31 @@ export const savePaymentDetails = async (req, res) => {
 
 
 export const receiveWebhook = async (req, res) => {
-  const io = req.app.locals.io;
+  const io = req.app.locals.io;  // Accede a la instancia de io desde la propiedad "locals" de Express
 
   if (!io) {
     console.error('Error: io no está definido en el contexto del servidor');
     return res.status(500).json({ message: 'Error: io no está definido' });
   }
 
-  console.log('Webhook recibido:', req.body);
+  const { type, data } = req.body;
 
-  try {
-    const { type, data } = req.body;
+  // Verifica si el webhook es de un pago
+  if (type === 'payment') {
+    const paymentId = data.id;
 
-    if (type === 'payment') {
-      const paymentId = data.id;
-
+    try {
+      // Obtén los detalles del pago desde Mercado Pago
       const paymentDetails = await axios.get(
         `https://api.mercadopago.com/v1/payments/${paymentId}`,
         {
           headers: {
-            Authorization: `Bearer ${MERCADOPAGO_API_KEY}`,
+            Authorization: `Bearer ${process.env.MERCADOPAGO_API_KEY}`,
           },
         }
       );
 
+      // Lógica de notificación según el estado del pago
       if (paymentDetails.data.status === 'approved') {
         io.emit('paymentSuccess', {
           status: 'approved',
@@ -149,16 +150,20 @@ export const receiveWebhook = async (req, res) => {
           status: 'rejected',
           paymentId,
         });
+      } else {
+        io.emit('paymentPending', {
+          status: 'pending',
+          paymentId,
+        });
       }
 
-      res.sendStatus(200);
-    } else {
-      res.sendStatus(200);
+      res.sendStatus(200); // Responde con OK
+
+    } catch (error) {
+      console.error('Error procesando el webhook:', error);
+      res.status(500).json({ message: 'Error al procesar el webhook', error: error.message });
     }
-  } catch (error) {
-    console.error('Error procesando el webhook:', error);
-    res.status(500).json({ message: 'Error al procesar el webhook', error: error.message });
+  } else {
+    res.sendStatus(200); // Si el tipo no es "payment", responde igualmente con OK
   }
 };
-
-
