@@ -2,62 +2,73 @@ import axios from 'axios';
 import { MERCADOPAGO_API_KEY } from '../../Config/index.js';
 
 
+export const createInteroperableQR = async (req, res) => {
+  const { title, items, totalAmount } = req.body;
 
+  console.log("Request recibido:", { title, items, totalAmount });
 
-// Método para guardar los detalles de pago y generar el QR con el enlace directo
-export const createPaymentLink = async (req, res) => {
-  const { title, price } = req.body;
-
-  // Verificación de datos
-  if (!title || !price || isNaN(price)) {
-    return res.status(400).json({ message: 'Datos inválidos: título o precio no válidos' });
+  // Validación de datos requeridos
+  if (!title || !items || !totalAmount) {
+    console.error("Datos incompletos:", { title, items, totalAmount });
+    return res.status(400).json({ message: "Datos incompletos." });
   }
 
-  // Datos de la preferencia para Mercado Pago
-  const preferenceData = {
-    items: [
-      {
-        title, // Título genérico
-        unit_price: parseFloat(price), // Precio total
-        quantity: 1, // Una sola compra
-        currency_id: 'ARS',
-      }
-    ],
-    payer: {
-      email: 'test_user_123456@test.com', // Cambiar por el correo del usuario
-    },
-    back_urls: {
-      success: "https://www.mercadopago.com.ar",
-      failure: "https://www.mercadopago.com.ar",
-      pending: "https://www.mercadopago.com.ar",
-    },
-    notification_url: `${process.env.BACKEND_URL}/Pagos/webhook`,
-    auto_return: 'approved',
+  // Construcción de los datos de la orden
+  const orderData = {
+    external_reference: `ORDER_${Date.now()}`,
+    title,
+    description: "Compra realizada en la tienda",
+    notification_url: "https://thepointback-03939a97aeeb.herokuapp.com/Pagos/webhook",
+    total_amount: totalAmount,
+    items: items.map((item) => ({
+      sku_number: item.sku || `SKU_${item.name}`, // SKU dinámico si no está definido
+      category: item.category || "marketplace",
+      title: item.name,
+      description: item.description || "Producto sin descripción",
+      unit_price: item.price,
+      quantity: item.quantity,
+      unit_measure: "unit",
+      total_amount: item.price * item.quantity,
+    })),
+    cash_out: { amount: 0 },
   };
 
-  console.log('URL de éxito:', `${process.env.URL.trim()}/payment-result/success`);
+  console.log("Datos preparados para la orden:", orderData);
 
   try {
-    // Hacer solicitud a la API de Mercado Pago
-    const response = await axios.post('https://api.mercadopago.com/checkout/preferences', preferenceData, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${MERCADOPAGO_API_KEY}`, // Asegúrate de tener la clave correcta
+    console.log("Enviando solicitud a Mercado Pago...");
+
+    // Endpoint configurado dinámicamente
+    const response = await axios.put(
+      `https://api.mercadopago.com/instore/orders/qr/seller/collectors/${process.env.COLLECTOR_ID}/pos/${process.env.EXTERNAL_POS_ID}/qrs`,
+      orderData,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.MERCADOPAGO_API_KEY}`,
+          "Content-Type": "application/json",
+        },
       }
+    );
+
+    console.log("Respuesta de Mercado Pago:", response.data);
+
+    // Enviar respuesta al frontend
+    res.status(200).json({
+      message: "Orden asociada correctamente.",
+      qr_data: response.data.qr_data,
+      order_id: response.data.in_store_order_id,
     });
-
-    const paymentLink = response.data.init_point; // Enlace de pago web
-
-    // Generar deep link para abrir directamente en la app de Mercado Pago
-    const deepLink = paymentLink.replace('https://www.mercadopago.com/', 'mercadopago://');
-
-    // Devolver el deep link al frontend
-    res.json({ paymentLink: deepLink });
   } catch (error) {
-    console.error('Error al crear la preferencia de pago:', error.response ? error.response.data : error.message);
-    res.status(500).json({ 
-      message: 'Error al crear la preferencia de pago', 
-      error: error.message,
+    console.error("Error al asociar la orden:");
+    if (error.response) {
+      console.error("Estado:", error.response.status);
+      console.error("Datos de respuesta:", error.response.data);
+    } else {
+      console.error("Mensaje de error:", error.message);
+    }
+    res.status(500).json({
+      message: "Error al asociar la orden.",
+      error: error.response?.data || error.message,
     });
   }
 };
@@ -103,7 +114,7 @@ export const savePaymentDetails = async (req, res) => {
 
 
 export const receiveWebhook = async (req, res) => {
-  const io = req.app.locals.io; // Obtener el objeto `io` desde `app.locals`
+  const io = req.app.locals.io;
 
   if (!io) {
     console.error('Error: io no está definido en el contexto del servidor');
@@ -117,42 +128,37 @@ export const receiveWebhook = async (req, res) => {
 
     if (type === 'payment') {
       const paymentId = data.id;
-      console.log('ID del pago recibido:', paymentId);
 
-      // Obtener detalles del pago desde Mercado Pago
-      const paymentDetails = await axios.get(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-        headers: {
-          Authorization: `Bearer ${MERCADOPAGO_API_KEY}`,
-        },
-      });
+      const paymentDetails = await axios.get(
+        `https://api.mercadopago.com/v1/payments/${paymentId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${MERCADOPAGO_API_KEY}`,
+          },
+        }
+      );
 
-      // Verificar si el pago fue aprobado
       if (paymentDetails.data.status === 'approved') {
-        console.log('Pago aprobado:', paymentDetails.data);
-
-        // Emitir un evento a través de WebSockets a todos los clientes conectados
         io.emit('paymentSuccess', {
           status: 'approved',
-          paymentId: paymentDetails.data.id,
-          amount: paymentDetails.data.transaction_amount, // Puedes enviar más detalles si es necesario
+          paymentId,
+          amount: paymentDetails.data.transaction_amount,
         });
-      }else if (paymentDetails.data.status === 'rejected') {
-        io.emit('paymentFailed', { status: 'rejected', paymentId: paymentDetails.data.id });
+      } else if (paymentDetails.data.status === 'rejected') {
+        io.emit('paymentFailed', {
+          status: 'rejected',
+          paymentId,
+        });
       }
 
-      // Responder a Mercado Pago que el webhook fue procesado correctamente
       res.sendStatus(200);
     } else {
-      console.log('Tipo de evento desconocido:', type);
-      res.sendStatus(200); // Responde 200 incluso si el tipo de evento no es "payment"
+      res.sendStatus(200);
     }
   } catch (error) {
     console.error('Error procesando el webhook:', error);
-    res.status(500).json({ message: 'Error al procesar el webhook' });
+    res.status(500).json({ message: 'Error al procesar el webhook', error: error.message });
   }
 };
-
-
-
 
 
