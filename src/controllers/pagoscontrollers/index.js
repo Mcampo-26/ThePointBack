@@ -50,7 +50,7 @@ export const createInteroperableQR = async (req, res) => {
       }
     );
 
-    console.log("Respuesta de Mercado Pago:", response.data);
+    console.log("Respuesta de Mercado Pago:", response);
 
     // Enviar respuesta al frontend
     res.status(200).json({

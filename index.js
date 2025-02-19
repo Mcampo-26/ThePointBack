@@ -12,7 +12,7 @@ const server = http.createServer(app); // Crear servidor HTTP
 const io = new Server(server, {
   cors: {
     origin: ['https://thepoint.netlify.app'],
-    //origin: ['http://localhost:8080'],// ngrok
+    //origin: ['http://localhost:8080,https://33ea-181-94-19-11.ngrok-free.app '],// ngrok
     methods: ['GET', 'POST'],
   },
 });
@@ -31,7 +31,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Configuración de CORS
 app.use(cors({
-  origin: ['https://thepoint.netlify.app'], // Permite solicitudes desde el dominio de tu frontend
+  origin: ['http://localhost:5173'], // Permite solicitudes desde el dominio de tu frontend
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'], // Permite estos encabezados
   credentials: true, // Permitir envío de cookies o autenticación basada en tokens
