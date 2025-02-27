@@ -7,7 +7,7 @@ const router = express.Router();
 
 
 // Obtener todas las ventas o filtrar por fecha
-router.get("/", getVentas);
+router.get("/ventas", getVentas);
 
 // Obtener una venta por su ID
 router.get("/:id", getVentaById);
