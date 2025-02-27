@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { MERCADOPAGO_API_KEY } from '../../Config/index.js';
+import Venta from "../../models/Venta.js"; 
 
 
 export const createInteroperableQR = async (req, res) => {
@@ -75,31 +76,41 @@ export const createInteroperableQR = async (req, res) => {
 
 const guardarVentaInterno = async (paymentData) => {
   try {
-    console.log("Guardando venta:", paymentData);
+    console.log("📌 Guardando venta en la base de datos:", paymentData);
 
-    // Aquí podrías guardar en la base de datos si es necesario:
-    // const nuevaVenta = new VentaModel(paymentData);
-    // await nuevaVenta.save();
+    // Crear nueva venta en la base de datos
+    const nuevaVenta = new Venta({
+      items: paymentData.additional_info?.items?.map((item) => ({
+        productId: item.sku_number, // Si en tu DB usas ObjectId, necesitarás manejarlo diferente
+        name: item.title,
+        price: item.unit_price,
+        quantity: item.quantity,
+      })) || [],
+      totalAmount: paymentData.transaction_amount,
+      status: paymentData.status,
+      transactionId: paymentData.id, // ID de la transacción en Mercado Pago
+    });
 
-    console.log("✅ Venta guardada con éxito");
+    // Guardar en la base de datos
+    await nuevaVenta.save();
+    console.log("✅ Venta guardada con éxito en la base de datos");
+
   } catch (error) {
-    console.error("❌ Error guardando la venta:", error);
+    console.error("❌ Error guardando la venta en la base de datos:", error);
     throw error;
   }
 };
-
-
 
 
 export const receiveWebhook = async (req, res) => {
   const io = req.app.locals.io;
   const { type, data } = req.body;
 
-  console.log("🔹 Webhook recibido:", req.body); // <-- 🔍 Verifica la estructura
+  console.log("🔹 Webhook recibido:", req.body);
 
   if (type === "payment") {
     const paymentId = data.id;
-    console.log(`🔹 Procesando pago con ID: ${paymentId}`); // <-- 🔍 Log de ID
+    console.log(`🔹 Procesando pago con ID: ${paymentId}`);
 
     try {
       const paymentDetails = await axios.get(
@@ -108,11 +119,11 @@ export const receiveWebhook = async (req, res) => {
       );
 
       const paymentData = paymentDetails.data;
-      console.log("🔹 Datos del pago obtenidos:", paymentData); // <-- 🔍 Muestra el JSON completo
+      console.log("🔹 Datos del pago obtenidos:", paymentData);
 
       if (paymentData.status === "approved") {
-        await guardarVentaInterno(paymentData);
-        console.log("✅ Venta guardada con éxito"); // <-- 🔍 Confirma que se guardó
+        await guardarVentaInterno(paymentData); // 🔹 Llamamos a la función para guardar la venta en la DB
+        console.log("✅ Venta guardada con éxito");
 
         io.emit("paymentSuccess", {
           status: "approved",
@@ -134,3 +145,7 @@ export const receiveWebhook = async (req, res) => {
     return res.sendStatus(200);
   }
 };
+
+
+
+
