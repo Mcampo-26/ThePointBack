@@ -73,7 +73,20 @@ export const createInteroperableQR = async (req, res) => {
   }
 };
 
+const guardarVentaInterno = async (paymentData) => {
+  try {
+    console.log("Guardando venta:", paymentData);
 
+    // Aquí podrías guardar en la base de datos si es necesario:
+    // const nuevaVenta = new VentaModel(paymentData);
+    // await nuevaVenta.save();
+
+    console.log("✅ Venta guardada con éxito");
+  } catch (error) {
+    console.error("❌ Error guardando la venta:", error);
+    throw error;
+  }
+};
 
 
 
