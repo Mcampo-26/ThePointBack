@@ -1,6 +1,6 @@
 import axios from 'axios';
-import { MERCADOPAGO_API_KEY } from '../../Config/index.js';
-import Venta from "../../models/Venta.js"; 
+
+import Venta from "../../models/Ventas.js"; 
 
 
 export const createInteroperableQR = async (req, res) => {
@@ -145,7 +145,3 @@ export const receiveWebhook = async (req, res) => {
     return res.sendStatus(200);
   }
 };
-
-
-
-
