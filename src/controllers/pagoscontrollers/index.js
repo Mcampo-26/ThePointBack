@@ -77,93 +77,47 @@ export const createInteroperableQR = async (req, res) => {
 
 
 
-export const savePaymentDetails = async (req, res) => {
-  const { userId, amount,  items } = req.body;
-
-  if (!userId) {
-    console.error('El ID de usuario es nulo o indefinido.');
-    return res.status(400).json({ message: 'ID de usuario es requerido' });
-  }
-
-  console.log('Buscando usuario con ID:', userId);
-
-  try {
-    const usuario = await Usuario.findById(userId);
-    if (!usuario) {
-      console.log('Usuario no encontrado para ID:', userId);
-      return res.status(404).json({ message: 'Usuario no encontrado' });
-    }
-
-    console.log('Usuario encontrado:', usuario);
-
-    usuario.paymentDetails = {
-     
-      amount,    
-
-      items,  // Asegúrate de que los ítems se están guardando aquí
-    };
-
-    await usuario.save();
-    res.status(200).json({ message: 'Detalles de pago guardados exitosamente' });
-  } catch (error) {
-    console.error('Error al guardar los detalles del pago:', error);
-    res.status(500).json({ message: 'Error al guardar los detalles del pago' });
-  }
-};
-
-
 
 export const receiveWebhook = async (req, res) => {
-  const io = req.app.locals.io;  // Accede a la instancia de io desde la propiedad "locals" de Express
-
-  if (!io) {
-    console.error('Error: io no está definido en el contexto del servidor');
-    return res.status(500).json({ message: 'Error: io no está definido' });
-  }
-
+  const io = req.app.locals.io;
   const { type, data } = req.body;
 
-  // Verifica si el webhook es de un pago
-  if (type === 'payment') {
+  console.log("🔹 Webhook recibido:", req.body); // <-- 🔍 Verifica la estructura
+
+  if (type === "payment") {
     const paymentId = data.id;
+    console.log(`🔹 Procesando pago con ID: ${paymentId}`); // <-- 🔍 Log de ID
 
     try {
-      // Obtén los detalles del pago desde Mercado Pago
       const paymentDetails = await axios.get(
         `https://api.mercadopago.com/v1/payments/${paymentId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.MERCADOPAGO_API_KEY}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${process.env.MERCADOPAGO_API_KEY}` } }
       );
 
-      // Lógica de notificación según el estado del pago
-      if (paymentDetails.data.status === 'approved') {
-        io.emit('paymentSuccess', {
-          status: 'approved',
+      const paymentData = paymentDetails.data;
+      console.log("🔹 Datos del pago obtenidos:", paymentData); // <-- 🔍 Muestra el JSON completo
+
+      if (paymentData.status === "approved") {
+        await guardarVentaInterno(paymentData);
+        console.log("✅ Venta guardada con éxito"); // <-- 🔍 Confirma que se guardó
+
+        io.emit("paymentSuccess", {
+          status: "approved",
           paymentId,
-          amount: paymentDetails.data.transaction_amount,
+          amount: paymentData.transaction_amount,
         });
-      } else if (paymentDetails.data.status === 'rejected') {
-        io.emit('paymentFailed', {
-          status: 'rejected',
-          paymentId,
-        });
+      } else if (paymentData.status === "rejected") {
+        io.emit("paymentFailed", { status: "rejected", paymentId });
       } else {
-        io.emit('paymentPending', {
-          status: 'pending',
-          paymentId,
-        });
+        io.emit("paymentPending", { status: "pending", paymentId });
       }
 
-      res.sendStatus(200); // Responde con OK
-
+      return res.sendStatus(200);
     } catch (error) {
-      console.error('Error procesando el webhook:', error);
-      res.status(500).json({ message: 'Error al procesar el webhook', error: error.message });
+      console.error("❌ Error procesando webhook:", error);
+      return res.status(500).json({ message: "Error al procesar webhook", error: error.message });
     }
   } else {
-    res.sendStatus(200); // Si el tipo no es "payment", responde igualmente con OK
+    return res.sendStatus(200);
   }
 };
