@@ -73,6 +73,21 @@ export const createInteroperableQR = async (req, res) => {
   }
 };
 
+const obtenerDatosPagador = async (payerId) => {
+  try {
+    const response = await axios.get(
+      `https://api.mercadopago.com/v1/customers/${payerId}`,
+      {
+        headers: { Authorization: `Bearer ${process.env.MERCADOPAGO_API_KEY}` },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error("❌ Error al obtener datos del pagador:", error.response?.data || error.message);
+    return null; // Si hay error, devolvemos null
+  }
+};
+
 const guardarVentaInterno = async (paymentData) => {
   try {
     if (!paymentData) {
@@ -82,9 +97,25 @@ const guardarVentaInterno = async (paymentData) => {
 
     console.log("📌 Guardando venta en la base de datos:", paymentData);
 
+    let pagadorNombre = "Desconocido";
+    let pagadorEmail = "No disponible";
+
+    if (paymentData.payer) {
+      pagadorNombre = paymentData.payer.first_name && paymentData.payer.last_name
+        ? `${paymentData.payer.first_name} ${paymentData.payer.last_name}`
+        : "Desconocido";
+
+      pagadorEmail = paymentData.payer.email || "No disponible";
+    }
+
+    // ✅ Si no hay nombre en `payer`, intenta obtenerlo desde `bank_info.payer.long_name`
+    if (pagadorNombre === "Desconocido" && paymentData.point_of_interaction?.transaction_data?.bank_info?.payer?.long_name) {
+      pagadorNombre = paymentData.point_of_interaction.transaction_data.bank_info.payer.long_name;
+    }
+
     const nuevaVenta = new Venta({
-      pagador: (paymentData.payer?.first_name || "") + " " + (paymentData.payer?.last_name || ""),
-      emailPagador: paymentData.payer?.email || "No disponible",
+      pagador: pagadorNombre,
+      emailPagador: pagadorEmail,
       transactionId: paymentData.id,
       totalAmount: paymentData.transaction_amount,
       status: paymentData.status,
@@ -106,21 +137,6 @@ const guardarVentaInterno = async (paymentData) => {
 };
 
 
-const obtenerDatosPagador = async (payerId) => {
-  try {
-    const response = await axios.get(
-      `https://api.mercadopago.com/v1/customers/${payerId}`,
-      {
-        headers: { Authorization: `Bearer ${process.env.MERCADOPAGO_API_KEY}` },
-      }
-    );
-    return response.data;
-  } catch (error) {
-    console.error("❌ Error al obtener datos del pagador:", error.response?.data || error.message);
-    return null; // Si hay un error, devolvemos null
-  }
-};
-
 export const receiveWebhook = async (req, res) => {
   const io = req.app.locals.io;
   const { type, data } = req.body;
@@ -132,54 +148,28 @@ export const receiveWebhook = async (req, res) => {
     console.log(`🔹 Procesando pago con ID: ${paymentId}`);
 
     try {
-      // 🔹 Consultamos los detalles del pago en Mercado Pago
       const response = await axios.get(
         `https://api.mercadopago.com/v1/payments/${paymentId}`,
-        {
-          headers: { Authorization: `Bearer ${process.env.MERCADOPAGO_API_KEY}` },
-        }
+        { headers: { Authorization: `Bearer ${process.env.MERCADOPAGO_API_KEY}` } }
       );
 
-      const paymentData = response.data;
+      const paymentData = response.data; // 🔹 Definimos correctamente paymentData
       console.log("🔹 Datos del pago obtenidos:", paymentData);
 
-      // 🔹 Si el pago tiene un pagador, obtenemos su información adicional
-      let pagadorNombre = "Desconocido";
-      let pagadorEmail = "No disponible";
+      if (paymentData.status === "approved") {
+        await guardarVentaInterno(paymentData); // 🔹 Pasamos paymentData correctamente
+        console.log("✅ Venta guardada con éxito");
 
-      if (paymentData.payer?.id) {
-        const datosPagador = await obtenerDatosPagador(paymentData.payer.id);
-        if (datosPagador) {
-          pagadorNombre = `${datosPagador.first_name || ""} ${datosPagador.last_name || ""}`.trim();
-          pagadorEmail = datosPagador.email || "No disponible";
-        }
+        io.emit("paymentSuccess", {
+          status: "approved",
+          paymentId,
+          amount: paymentData.transaction_amount,
+        });
+      } else if (paymentData.status === "rejected") {
+        io.emit("paymentFailed", { status: "rejected", paymentId });
+      } else {
+        io.emit("paymentPending", { status: "pending", paymentId });
       }
-
-      // 🔹 Guardamos la venta en la base de datos
-      const nuevaVenta = new Venta({
-        pagador: pagadorNombre,
-        emailPagador: pagadorEmail,
-        transactionId: paymentData.id,
-        totalAmount: paymentData.transaction_amount,
-        status: paymentData.status,
-        fechaVenta: new Date(paymentData.date_approved || Date.now()),
-        items: paymentData.additional_info?.items?.map((item) => ({
-          productId: item.sku_number,
-          name: item.title,
-          price: item.unit_price,
-          quantity: item.quantity,
-        })) || [],
-      });
-
-      await nuevaVenta.save();
-      console.log("✅ Venta guardada con éxito en la base de datos");
-
-      // 🔹 Emitimos evento a los clientes conectados por Socket.io
-      io.emit("paymentSuccess", {
-        status: "approved",
-        paymentId,
-        amount: paymentData.transaction_amount,
-      });
 
       return res.sendStatus(200);
     } catch (error) {
@@ -190,3 +180,5 @@ export const receiveWebhook = async (req, res) => {
     return res.sendStatus(200);
   }
 };
+
+
