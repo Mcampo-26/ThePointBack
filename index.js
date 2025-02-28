@@ -7,6 +7,7 @@ import routerPagos from './src/Routes/Pagos/index.js';
 import routerProductos from './src/Routes/Productos/index.js';
 import routerVentas from './src/Routes/Ventas/index.js';
 import { dbConnect } from './src/database/config.js';
+import routerVentas from './src/Routes/Ventas/index.js';
 
 const app = express();
 const server = http.createServer(app); // Crear servidor HTTP
@@ -55,18 +56,6 @@ io.on('connection', (socket) => {
 // Montar rutas
 app.use('/Pagos', routerPagos);
 app.use('/Productos', routerProductos);
-app.use('/Ventas', routerVentas);
-
-// Ruta de prueba para confirmar que el servidor está funcionando
-app.get('/', (req, res) => {
-  res.status(200).json({ message: "Servidor funcionando correctamente" });
-});
-
-// Manejo de errores global para evitar bloqueos inesperados
-app.use((err, req, res, next) => {
-  console.error("❌ Error en la solicitud:", err);
-  res.status(500).json({ message: "Error interno del servidor", error: err.message });
-});
 
 // Iniciar servidor
 server.listen(PORT, () => {

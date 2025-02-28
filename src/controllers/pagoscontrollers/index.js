@@ -1,4 +1,8 @@
 import axios from 'axios';
+<<<<<<< HEAD
+=======
+
+>>>>>>> bb4615900d0f81c1ecc7320d0a304acd753f0486
 import Venta from "../../models/Ventas.js"; 
 
 
@@ -75,6 +79,7 @@ export const createInteroperableQR = async (req, res) => {
 
 const guardarVentaInterno = async (paymentData) => {
   try {
+<<<<<<< HEAD
     if (!paymentData) {
       console.error("❌ Error: paymentData no está definido.");
       return;
@@ -91,14 +96,34 @@ const guardarVentaInterno = async (paymentData) => {
       fechaVenta: new Date(paymentData.date_approved || Date.now()),
       items: paymentData.additional_info?.items?.map((item) => ({
         productId: item.sku_number,
+=======
+    console.log("📌 Guardando venta en la base de datos:", paymentData);
+
+    // Crear nueva venta en la base de datos
+    const nuevaVenta = new Venta({
+      items: paymentData.additional_info?.items?.map((item) => ({
+        productId: item.sku_number, // Si en tu DB usas ObjectId, necesitarás manejarlo diferente
+>>>>>>> bb4615900d0f81c1ecc7320d0a304acd753f0486
         name: item.title,
         price: item.unit_price,
         quantity: item.quantity,
       })) || [],
+<<<<<<< HEAD
     });
 
     await nuevaVenta.save();
     console.log("✅ Venta guardada con éxito en la base de datos");
+=======
+      totalAmount: paymentData.transaction_amount,
+      status: paymentData.status,
+      transactionId: paymentData.id, // ID de la transacción en Mercado Pago
+    });
+
+    // Guardar en la base de datos
+    await nuevaVenta.save();
+    console.log("✅ Venta guardada con éxito en la base de datos");
+
+>>>>>>> bb4615900d0f81c1ecc7320d0a304acd753f0486
   } catch (error) {
     console.error("❌ Error guardando la venta en la base de datos:", error);
     throw error;
@@ -117,16 +142,28 @@ export const receiveWebhook = async (req, res) => {
     console.log(`🔹 Procesando pago con ID: ${paymentId}`);
 
     try {
+<<<<<<< HEAD
       const response = await axios.get(
+=======
+      const paymentDetails = await axios.get(
+>>>>>>> bb4615900d0f81c1ecc7320d0a304acd753f0486
         `https://api.mercadopago.com/v1/payments/${paymentId}`,
         { headers: { Authorization: `Bearer ${process.env.MERCADOPAGO_API_KEY}` } }
       );
 
+<<<<<<< HEAD
       const paymentData = response.data; // 🔹 Definimos correctamente paymentData
       console.log("🔹 Datos del pago obtenidos:", paymentData);
 
       if (paymentData.status === "approved") {
         await guardarVentaInterno(paymentData); // 🔹 Pasamos paymentData correctamente
+=======
+      const paymentData = paymentDetails.data;
+      console.log("🔹 Datos del pago obtenidos:", paymentData);
+
+      if (paymentData.status === "approved") {
+        await guardarVentaInterno(paymentData); // 🔹 Llamamos a la función para guardar la venta en la DB
+>>>>>>> bb4615900d0f81c1ecc7320d0a304acd753f0486
         console.log("✅ Venta guardada con éxito");
 
         io.emit("paymentSuccess", {
