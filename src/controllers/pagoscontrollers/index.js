@@ -1,5 +1,6 @@
 import axios from 'axios';
-import Venta from '../../models/Ventas.js';  //  <-- Asegúrate de importar tu modelo
+import Venta from "../../models/Ventas.js"; 
+
 
 export const createInteroperableQR = async (req, res) => {
   const { title, items, totalAmount } = req.body;
@@ -20,7 +21,7 @@ export const createInteroperableQR = async (req, res) => {
     notification_url: "https://thepointback-03939a97aeeb.herokuapp.com/Pagos/webhook",
     total_amount: totalAmount,
     items: items.map((item) => ({
-      sku_number: item.sku || `SKU_${item.name}`, 
+      sku_number: item.sku || `SKU_${item.name}`, // SKU dinámico si no está definido
       category: item.category || "marketplace",
       title: item.name,
       description: item.description || "Producto sin descripción",
@@ -37,6 +38,7 @@ export const createInteroperableQR = async (req, res) => {
   try {
     console.log("Enviando solicitud a Mercado Pago...");
 
+    // Endpoint configurado dinámicamente
     const response = await axios.put(
       `https://api.mercadopago.com/instore/orders/qr/seller/collectors/${process.env.COLLECTOR_ID}/pos/${process.env.EXTERNAL_POS_ID}/qrs`,
       orderData,
@@ -48,8 +50,9 @@ export const createInteroperableQR = async (req, res) => {
       }
     );
 
-    console.log("Respuesta de Mercado Pago:", response.data);
+    console.log("Respuesta de Mercado Pago:", response);
 
+    // Enviar respuesta al frontend
     res.status(200).json({
       message: "Orden asociada correctamente.",
       qr_data: response.data.qr_data,
@@ -70,59 +73,62 @@ export const createInteroperableQR = async (req, res) => {
   }
 };
 
-// 1️⃣ Función interna para guardar la venta en DB
-async function guardarVentaInterno(paymentData) {
-  if (!paymentData) throw new Error("No hay datos de pago");
+const guardarVentaInterno = async (paymentData) => {
+  try {
+    if (!paymentData) {
+      console.error("❌ Error: paymentData no está definido.");
+      return;
+    }
 
-  // Solo guardamos si está aprobado
-  if (paymentData.status !== "approved") return;
+    console.log("📌 Guardando venta en la base de datos:", paymentData);
 
-  const ventaData = {
-    transactionId: paymentData.id,
-    totalAmount: paymentData.transaction_amount,
-    status: paymentData.status,
-    fechaVenta: new Date(paymentData.date_approved || paymentData.date_created),
-    items:
-      paymentData.additional_info?.items?.map((item) => ({
-        productId: item.id || null,
+    const nuevaVenta = new Venta({
+      pagador: (paymentData.payer?.first_name || "") + " " + (paymentData.payer?.last_name || ""),
+      emailPagador: paymentData.payer?.email || "No disponible",
+      transactionId: paymentData.id,
+      totalAmount: paymentData.transaction_amount,
+      status: paymentData.status,
+      fechaVenta: new Date(paymentData.date_approved || Date.now()),
+      items: paymentData.additional_info?.items?.map((item) => ({
+        productId: item.sku_number,
         name: item.title,
         price: item.unit_price,
         quantity: item.quantity,
       })) || [],
-  };
+    });
 
-  // Creamos y guardamos la venta en Mongo
-  const nuevaVenta = new Venta(ventaData);
-  await nuevaVenta.save();
+    await nuevaVenta.save();
+    console.log("✅ Venta guardada con éxito en la base de datos");
+  } catch (error) {
+    console.error("❌ Error guardando la venta en la base de datos:", error);
+    throw error;
+  }
+};
 
-  console.log("Venta guardada en DB con ID:", nuevaVenta._id);
-}
 
-// 2️⃣ Webhook de Mercado Pago
 export const receiveWebhook = async (req, res) => {
-  const io = req.app.locals.io; 
+  const io = req.app.locals.io;
   const { type, data } = req.body;
+
+  console.log("🔹 Webhook recibido:", req.body);
 
   if (type === "payment") {
     const paymentId = data.id;
+    console.log(`🔹 Procesando pago con ID: ${paymentId}`);
 
     try {
-      // Consulta los detalles del pago
-      const paymentDetails = await axios.get(
+      const response = await axios.get(
         `https://api.mercadopago.com/v1/payments/${paymentId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.MERCADOPAGO_API_KEY}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${process.env.MERCADOPAGO_API_KEY}` } }
       );
 
-      const paymentData = paymentDetails.data;
+      const paymentData = response.data; // 🔹 Definimos correctamente paymentData
+      console.log("🔹 Datos del pago obtenidos:", paymentData);
 
       if (paymentData.status === "approved") {
-        await guardarVentaInterno(paymentData);
+        await guardarVentaInterno(paymentData); // 🔹 Pasamos paymentData correctamente
+        console.log("✅ Venta guardada con éxito");
 
-        // Luego emites el evento de éxito (Socket.IO)
         io.emit("paymentSuccess", {
           status: "approved",
           paymentId,
@@ -136,14 +142,43 @@ export const receiveWebhook = async (req, res) => {
 
       return res.sendStatus(200);
     } catch (error) {
-      console.error("Error procesando webhook:", error);
-      return res.status(500).json({
-        message: "Error al procesar webhook",
-        error: error.message,
-      });
+      console.error("❌ Error procesando webhook:", error);
+      return res.status(500).json({ message: "Error al procesar webhook", error: error.message });
     }
   } else {
-    // Si el tipo no es payment, responde OK
     return res.sendStatus(200);
+  }
+};
+
+
+export const guardarVentaManual = async (req, res) => {
+  try {
+    const { pagador, emailPagador, transactionId, totalAmount, status, items } = req.body;
+
+    // Validación de datos obligatorios
+    if (!transactionId || !totalAmount || !status || !items) {
+      return res.status(400).json({ message: "Faltan datos obligatorios." });
+    }
+
+    const nuevaVenta = new Venta({
+      pagador: pagador || "Desconocido",
+      emailPagador: emailPagador || "No disponible",
+      transactionId,
+      totalAmount,
+      status,
+      fechaVenta: new Date(),
+      items: items.map((item) => ({
+        productId: item.productId || null, // Opcional, en caso de que no tengas ID del producto
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+      })),
+    });
+
+    await nuevaVenta.save();
+    res.status(201).json({ message: "Venta guardada con éxito.", venta: nuevaVenta });
+  } catch (error) {
+    console.error("❌ Error guardando la venta manual:", error);
+    res.status(500).json({ message: "Error al guardar la venta." });
   }
 };

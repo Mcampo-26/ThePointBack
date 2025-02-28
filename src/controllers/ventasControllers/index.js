@@ -2,79 +2,19 @@ import Venta from "../../models/Ventas.js"; // Importamos el modelo de ventas
 import axios from "axios";
 
 // Función para almacenar ventas después de un pago exitoso
-export const saveVenta = async (req, res) => {
-  const { paymentId } = req.body;
-
-  if (!paymentId) {
-    return res.status(400).json({ message: "Falta el ID del pago." });
-  }
-
-  try {
-    // 🔹 Consultamos los detalles del pago en Mercado Pago
-    const paymentDetails = await axios.get(
-      `https://api.mercadopago.com/v1/payments/${paymentId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.MERCADOPAGO_API_KEY}`,
-        },
-      }
-    );
-
-    const paymentData = paymentDetails.data;
-
-    // Verificamos si el pago fue aprobado
-    if (paymentData.status !== "approved") {
-      return res.status(400).json({ message: "El pago no está aprobado." });
-    }
-
-    // 🔹 Extraemos la información relevante para la venta
-    const ventaData = {
-      transactionId: paymentData.id, // ID de la transacción en Mercado Pago
-      totalAmount: paymentData.transaction_amount, // Monto total pagado
-      status: paymentData.status, // Estado del pago: approved, rejected, pending
-      fechaVenta: new Date(paymentData.date_approved || paymentData.date_created), // Fecha de la venta
-
-      // Extraemos los productos comprados
-      items: paymentData.additional_info?.items?.map((item) => ({
-        productId: item.id || null, // ID del producto si lo tenemos
-        name: item.title, // Nombre del producto
-        price: item.unit_price, // Precio unitario
-        quantity: item.quantity, // Cantidad comprada
-      })) || [],
-    };
-
-    // 🔹 Guardamos la venta en la base de datos
-    const nuevaVenta = new Venta(ventaData);
-    await nuevaVenta.save();
-
-    res.status(201).json({ message: "Venta guardada exitosamente.", venta: nuevaVenta });
-  } catch (error) {
-    console.error("Error al guardar la venta:", error);
-    res.status(500).json({ message: "Error al guardar la venta.", error: error.message });
-  }
-};
 
 // Obtener todas las ventas o filtrar por fecha
 export const getVentas = async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
-    let query = {};
-
-    if (startDate && endDate) {
-      query.fechaVenta = {
-        $gte: new Date(startDate), // Fecha de inicio
-        $lte: new Date(endDate),   // Fecha de fin
-      };
-    }
-
-    const ventas = await Venta.find(query).sort({ fechaVenta: -1 }).populate("items.productId");
-
+    const ventas = await Venta.find().sort({ fechaVenta: -1 }).populate("items.productId");
+    console.log("📌 Ventas obtenidas sin filtro:", ventas.length); // 🔍 Revisa si devuelve datos
     res.status(200).json(ventas);
   } catch (error) {
     console.error("Error al obtener ventas:", error);
     res.status(500).json({ message: "Error al obtener ventas." });
   }
 };
+
 
 // Obtener una venta por ID
 export const getVentaById = async (req, res) => {
@@ -108,5 +48,37 @@ export const obtenerVentasMercadoPago = async (req, res) => {
   } catch (error) {
     console.error("Error al obtener ventas de Mercado Pago:", error);
     res.status(500).json({ message: "Error al obtener ventas", error: error.message });
+  }
+};
+
+export const guardarVentaManual = async (req, res) => {
+  try {
+    const { pagador, emailPagador, transactionId, totalAmount, status, items } = req.body;
+
+    // Validación de datos obligatorios
+    if (!transactionId || !totalAmount || !status || !items) {
+      return res.status(400).json({ message: "Faltan datos obligatorios." });
+    }
+
+    const nuevaVenta = new Venta({
+      pagador: pagador || "Desconocido",
+      emailPagador: emailPagador || "No disponible",
+      transactionId,
+      totalAmount,
+      status,
+      fechaVenta: new Date(),
+      items: items.map((item) => ({
+        productId: item.productId || null, // Opcional, en caso de que no tengas ID del producto
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+      })),
+    });
+
+    await nuevaVenta.save();
+    res.status(201).json({ message: "Venta guardada con éxito.", venta: nuevaVenta });
+  } catch (error) {
+    console.error("❌ Error guardando la venta manual:", error);
+    res.status(500).json({ message: "Error al guardar la venta." });
   }
 };

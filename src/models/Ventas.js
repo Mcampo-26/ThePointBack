@@ -28,6 +28,14 @@ const ventaSchema = new mongoose.Schema(
       default: Date.now, // Guarda automáticamente la fecha y hora de la venta
       required: true,
     },
+    pagador: {
+      type: String, // Nombre completo del comprador
+      required: false, // No es obligatorio, ya que algunos pagos no tendrán nombre registrado
+    },
+    emailPagador: {
+      type: String, // Correo electrónico del comprador
+      required: false, // No es obligatorio
+    },
   },
   { timestamps: true } // Esto ya guarda `createdAt` y `updatedAt`
 );
