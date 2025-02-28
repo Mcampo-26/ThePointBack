@@ -88,31 +88,30 @@ const guardarVentaInterno = async (paymentData) => {
     const ventaExistente = await Venta.findOne({ transactionId: paymentData.id });
     if (ventaExistente) {
       console.log("⚠️ La venta ya fue registrada anteriormente. No se guardará nuevamente.");
-      return; // Evitar duplicados
+      return; // No guardamos la misma venta dos veces
     }
 
-    console.log("📌 Extrayendo productos...");
-
-    let productos = paymentData.additional_info?.items?.map((item) => ({
-      productId: item.sku_number || "SKU_Desconocido",
-      name: item.title || "Producto sin nombre",
-      price: item.unit_price || 0,
-      quantity: item.quantity || 1,
+    // Obtener los productos de la transacción
+    const items = paymentData.additional_info?.items?.map(item => ({
+      productId: item.sku_number, // Usamos el sku_number como productId
+      name: item.title,
+      price: item.unit_price,
+      quantity: item.quantity,
     })) || [];
 
-    console.log("🛒 Productos obtenidos:", productos);
-
-    // ✅ Guardamos la venta con los productos
+    // Crear la nueva venta
     const nuevaVenta = new Venta({
       transactionId: paymentData.id,
-      totalAmount: paymentData.total_paid_amount || paymentData.transaction_amount || 0,
+      totalAmount: paymentData.transaction_amount,
       status: paymentData.status,
       fechaVenta: new Date(paymentData.date_approved || Date.now()),
-      items: productos, 
+      items: items, // Guardamos los productos
     });
 
+    // Guardamos la venta en la base de datos
     await nuevaVenta.save();
     console.log("✅ Venta guardada con éxito en la base de datos");
+
   } catch (error) {
     console.error("❌ Error guardando la venta en la base de datos:", error);
     throw error;

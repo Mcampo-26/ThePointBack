@@ -4,7 +4,7 @@ const ventaSchema = new mongoose.Schema(
   {
     items: [
       {
-        productId: { type: mongoose.Schema.Types.ObjectId, ref: "Producto" },
+        productId: { type: String, required: true }, // Cambiado a String si no estás usando referencias
         name: { type: String, required: true },
         price: { type: Number, required: true },
         quantity: { type: Number, required: true },
