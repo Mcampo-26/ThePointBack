@@ -6,14 +6,25 @@ import axios from "axios";
 // Obtener todas las ventas o filtrar por fecha
 export const getVentas = async (req, res) => {
   try {
-    const ventas = await Venta.find().sort({ fechaVenta: -1 }).populate("items.productId");
-    console.log("📌 Ventas obtenidas sin filtro:", ventas.length); // 🔍 Revisa si devuelve datos
+    const { startDate, endDate } = req.query;
+    let query = {};
+
+    if (startDate && endDate) {
+      query.fechaVenta = {
+        $gte: new Date(startDate), // Fecha de inicio
+        $lte: new Date(endDate),   // Fecha de fin
+      };
+    }
+
+    const ventas = await Venta.find(query).sort({ fechaVenta: -1 }).populate("items.productId");
+
     res.status(200).json(ventas);
   } catch (error) {
     console.error("Error al obtener ventas:", error);
     res.status(500).json({ message: "Error al obtener ventas." });
   }
 };
+
 
 
 // Obtener una venta por ID
