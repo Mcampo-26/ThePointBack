@@ -140,53 +140,68 @@ const obtenerDetallesDeOrden = async (orderId) => {
 
 
 
+
+
+// Esta función se ejecuta cuando recibes un webhook de Mercado Pago
 export const receiveWebhook = async (req, res) => {
-  const io = req.app.locals.io;
-  const { type, data } = req.body;
+  const io = req.app.locals.io;  // Si usas WebSocket para notificar en tiempo real
+  const { type, data } = req.body;  // Obtenemos la información del webhook
 
   console.log("🔹 Webhook recibido:", req.body);
 
   if (type === "payment") {
-    const paymentId = data.id;
-    const orderId = data.external_reference; // Aquí obtienes el `in_store_order_id` o `external_reference`
+    const paymentId = data.id;  // ID de la transacción
+    console.log(`🔹 Procesando pago con ID: ${paymentId}`);
 
     try {
-      // Obtener los detalles de la orden (productos)
-      const orderDetails = await obtenerDetallesDeOrden(orderId);
-      if (orderDetails) {
-        console.log("Productos de la orden:", orderDetails.items);
-        // Aquí puedes procesar los productos y guardarlos como corresponda
-      }
-
+      // Hacer una llamada a la API de Mercado Pago para obtener los detalles de la transacción
       const response = await axios.get(
         `https://api.mercadopago.com/v1/payments/${paymentId}`,
         { headers: { Authorization: `Bearer ${process.env.MERCADOPAGO_API_KEY}` } }
       );
 
-      const paymentData = response.data;
-      console.log("🔹 Datos del pago obtenidos:", paymentData);
+      const paymentData = response.data; // Obtenemos la información completa de la transacción
 
+      // Verificamos si el pago fue aprobado
       if (paymentData.status === "approved") {
-        await guardarVentaInterno(paymentData); // Guardamos la venta
-        console.log("✅ Venta guardada con éxito");
+        console.log("✅ Pago aprobado, guardando la venta...");
 
-        io.emit("paymentSuccess", {
-          status: "approved",
-          paymentId,
-          amount: paymentData.transaction_amount,
+        // Obtener los productos de la transacción
+        const items = paymentData.additional_info?.items?.map(item => ({
+          productId: item.sku_number,
+          name: item.title,
+          price: item.unit_price,
+          quantity: item.quantity,
+        })) || [];
+
+        // Crear una nueva venta
+        const nuevaVenta = new Venta({
+          transactionId: paymentData.id,
+          totalAmount: paymentData.transaction_amount,
+          status: paymentData.status,
+          fechaVenta: new Date(paymentData.date_approved || Date.now()),
+          items: items,  // Guardamos los productos
         });
-      } else if (paymentData.status === "rejected") {
-        io.emit("paymentFailed", { status: "rejected", paymentId });
+
+        // Guardamos la venta en la base de datos
+        await nuevaVenta.save();
+        console.log("✅ Venta guardada con éxito en la base de datos");
+
+        // Emitimos un evento para notificar que el pago fue exitoso
+        io.emit("paymentSuccess", { status: "approved", paymentId, amount: paymentData.transaction_amount });
       } else {
-        io.emit("paymentPending", { status: "pending", paymentId });
+        console.log("❌ El pago no fue aprobado, no se guarda la venta");
       }
 
+      // Respondemos con un status 200 para confirmar la recepción del webhook
       return res.sendStatus(200);
+
     } catch (error) {
-      console.error("❌ Error procesando webhook:", error);
-      return res.status(500).json({ message: "Error al procesar webhook", error: error.message });
+      console.error("❌ Error procesando el webhook:", error);
+      return res.status(500).json({ message: "Error al procesar el webhook", error: error.message });
     }
   } else {
+    // Si no es un pago, respondemos con un 200
     return res.sendStatus(200);
   }
 };
