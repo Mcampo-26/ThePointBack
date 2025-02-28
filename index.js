@@ -12,8 +12,8 @@ const app = express();
 const server = http.createServer(app); // Crear servidor HTTP
 const io = new Server(server, {
   cors: {
-    //origin: ['https://thepoint.netlify.app'],
-    origin: ['http://localhost:5173'],// ngrok
+  origin: ['https://thepoint.netlify.app'],
+   // origin: ['http://localhost:5173'],// ngrok
     methods: ['GET', 'POST'],
   },
 });
