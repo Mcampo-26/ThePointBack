@@ -73,53 +73,7 @@ export const createInteroperableQR = async (req, res) => {
   }
 };
 
-const obtenerDatosPagador = async (payerId) => {
-  try {
-    // Intentar obtener información desde la API de Customers
-    const customerResponse = await axios.get(
-      `https://api.mercadopago.com/v1/customers/${payerId}`,
-      {
-        headers: { Authorization: `Bearer ${process.env.MERCADOPAGO_API_KEY}` },
-      }
-    );
 
-    console.log("✅ Datos del pagador obtenidos desde /customers:", customerResponse.data);
-    return {
-      payerId,
-      email: customerResponse.data.email || "No disponible",
-      nombreBilletera: "No disponible", // No se obtiene desde customers
-      metodoPago: "No disponible",
-    };
-  } catch (error) {
-    console.warn("⚠️ Cliente no encontrado en /customers, buscando en /payments...");
-
-    // Si no se encuentra en customers, intentamos obtener los datos desde el pago
-    try {
-      const paymentResponse = await axios.get(
-        `https://api.mercadopago.com/v1/payments/${payerId}`, // Aquí pasamos el paymentId
-        {
-          headers: { Authorization: `Bearer ${process.env.MERCADOPAGO_API_KEY}` },
-        }
-      );
-
-      const paymentData = paymentResponse.data;
-
-      const pagador = {
-        payerId: paymentData.payer?.id || "Desconocido",
-        email: paymentData.payer?.email || "No disponible",
-        nombreBilletera:
-          paymentData.point_of_interaction?.transaction_data?.bank_info?.payer?.long_name || "Desconocido",
-        metodoPago: paymentData.payment_method?.id || "Desconocido",
-      };
-
-      console.log("✅ Datos del pagador obtenidos desde /payments:", pagador);
-      return pagador;
-    } catch (error) {
-      console.error("❌ Error al obtener datos del pagador:", error.response?.data || error.message);
-      return null;
-    }
-  }
-};
 
 const guardarVentaInterno = async (paymentData) => {
   try {
@@ -134,30 +88,17 @@ const guardarVentaInterno = async (paymentData) => {
     const ventaExistente = await Venta.findOne({ transactionId: paymentData.id });
     if (ventaExistente) {
       console.log("⚠️ La venta ya fue registrada anteriormente. No se guardará nuevamente.");
-      return;
+      return; // Evitar duplicados
     }
 
     console.log("📌 Extrayendo productos...");
 
-    // ✅ Extraer los productos desde el objeto `order` si no vienen en `additional_info.items`
-    let productos = [];
-    if (paymentData.additional_info?.items?.length > 0) {
-      productos = paymentData.additional_info.items.map((item) => ({
-        productId: item.sku_number || "SKU_Desconocido",
-        name: item.title || "Producto sin nombre",
-        price: item.unit_price || 0,
-        quantity: item.quantity || 1,
-      }));
-    } else if (paymentData.order?.items?.length > 0) {
-      productos = paymentData.order.items.map((item) => ({
-        productId: item.sku_number || "SKU_Desconocido",
-        name: item.title || "Producto sin nombre",
-        price: item.unit_price || 0,
-        quantity: item.quantity || 1,
-      }));
-    } else {
-      console.warn("⚠️ No se encontraron productos en `additional_info.items` ni en `order.items`.");
-    }
+    let productos = paymentData.additional_info?.items?.map((item) => ({
+      productId: item.sku_number || "SKU_Desconocido",
+      name: item.title || "Producto sin nombre",
+      price: item.unit_price || 0,
+      quantity: item.quantity || 1,
+    })) || [];
 
     console.log("🛒 Productos obtenidos:", productos);
 
@@ -167,7 +108,7 @@ const guardarVentaInterno = async (paymentData) => {
       totalAmount: paymentData.total_paid_amount || paymentData.transaction_amount || 0,
       status: paymentData.status,
       fechaVenta: new Date(paymentData.date_approved || Date.now()),
-      items: productos, // Ahora sí guardamos los productos correctamente
+      items: productos, 
     });
 
     await nuevaVenta.save();
@@ -178,6 +119,24 @@ const guardarVentaInterno = async (paymentData) => {
   }
 };
 
+const obtenerDetallesDeOrden = async (orderId) => {
+  try {
+    const response = await axios.get(
+      `https://api.mercadopago.com/v1/merchant_orders/${orderId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.MERCADOPAGO_API_KEY}`,
+        },
+      }
+    );
+
+    console.log("Detalles de la orden:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("Error al obtener los detalles de la orden:", error.response?.data || error.message);
+    return null;
+  }
+};
 
 
 
@@ -189,19 +148,26 @@ export const receiveWebhook = async (req, res) => {
 
   if (type === "payment") {
     const paymentId = data.id;
-    console.log(`🔹 Procesando pago con ID: ${paymentId}`);
+    const orderId = data.external_reference; // Aquí obtienes el `in_store_order_id` o `external_reference`
 
     try {
+      // Obtener los detalles de la orden (productos)
+      const orderDetails = await obtenerDetallesDeOrden(orderId);
+      if (orderDetails) {
+        console.log("Productos de la orden:", orderDetails.items);
+        // Aquí puedes procesar los productos y guardarlos como corresponda
+      }
+
       const response = await axios.get(
         `https://api.mercadopago.com/v1/payments/${paymentId}`,
         { headers: { Authorization: `Bearer ${process.env.MERCADOPAGO_API_KEY}` } }
       );
 
-      const paymentData = response.data; // 🔹 Definimos correctamente paymentData
+      const paymentData = response.data;
       console.log("🔹 Datos del pago obtenidos:", paymentData);
 
       if (paymentData.status === "approved") {
-        await guardarVentaInterno(paymentData); // 🔹 Pasamos paymentData correctamente
+        await guardarVentaInterno(paymentData); // Guardamos la venta
         console.log("✅ Venta guardada con éxito");
 
         io.emit("paymentSuccess", {
@@ -224,5 +190,3 @@ export const receiveWebhook = async (req, res) => {
     return res.sendStatus(200);
   }
 };
-
-
