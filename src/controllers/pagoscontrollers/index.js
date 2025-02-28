@@ -128,16 +128,21 @@ const guardarVentaInterno = async (paymentData) => {
       return;
     }
 
-    console.log("📌 Guardando venta en la base de datos:", paymentData);
+    console.log("📌 Verificando si la venta ya existe en la base de datos:", paymentData.id);
 
-    // ✅ Obtener el nombre de la billetera utilizada
+    // 🔍 Verificar si la transacción ya fue guardada
+    const ventaExistente = await Venta.findOne({ transactionId: paymentData.id });
+    if (ventaExistente) {
+      console.log("⚠️ La venta ya fue registrada anteriormente. No se guardará nuevamente.");
+      return; // No guardamos la misma venta dos veces
+    }
+
+    // Obtener el nombre de la billetera
     const nombreBilletera = obtenerNombreBilletera(paymentData.payment_method?.id);
 
-    let pagadorEmail = paymentData.payer?.email || "No disponible";
-
     const nuevaVenta = new Venta({
-      pagador: nombreBilletera, // Aquí guardamos la billetera en lugar del nombre del pagador
-      emailPagador: pagadorEmail,
+      pagador: nombreBilletera,
+      emailPagador: paymentData.payer?.email || "No disponible",
       transactionId: paymentData.id,
       totalAmount: paymentData.transaction_amount,
       status: paymentData.status,
@@ -157,6 +162,7 @@ const guardarVentaInterno = async (paymentData) => {
     throw error;
   }
 };
+
 
 // 🔹 Mapeo de billeteras según el método de pago
 const obtenerNombreBilletera = (paymentMethodId) => {
