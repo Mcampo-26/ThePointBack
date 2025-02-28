@@ -140,67 +140,69 @@ const obtenerDetallesDeOrden = async (orderId) => {
 
 
 
-
-// Esta función se ejecuta cuando recibes un webhook de Mercado Pago
 export const receiveWebhook = async (req, res) => {
-  const io = req.app.locals.io;  // Si usas WebSocket para notificar en tiempo real
-  const { type, data } = req.body;  // Obtenemos la información del webhook
+  const io = req.app.locals.io;
+  const { type, data } = req.body;
 
   console.log("🔹 Webhook recibido:", req.body);
 
   if (type === "payment") {
-    const paymentId = data.id;  // ID de la transacción
+    const paymentId = data.id;
     console.log(`🔹 Procesando pago con ID: ${paymentId}`);
 
     try {
-      // Hacer una llamada a la API de Mercado Pago para obtener los detalles de la transacción
+      // 1️⃣ Obtener detalles del pago
       const response = await axios.get(
         `https://api.mercadopago.com/v1/payments/${paymentId}`,
         { headers: { Authorization: `Bearer ${process.env.MERCADOPAGO_API_KEY}` } }
       );
 
-      const paymentData = response.data; // Obtenemos la información completa de la transacción
+      const paymentData = response.data;
 
-      // Verificamos si el pago fue aprobado
       if (paymentData.status === "approved") {
-        console.log("✅ Pago aprobado, guardando la venta...");
+        console.log("✅ Pago aprobado, buscando los productos...");
 
-        // Obtener los productos de la transacción
-        const items = paymentData.additional_info?.items?.map(item => ({
-          productId: item.sku_number,
+        // 2️⃣ Obtener detalles de la orden de Mercado Pago (productos)
+        const orderResponse = await axios.get(
+          `https://api.mercadopago.com/merchant_orders/${paymentData.order.id}`,
+          { headers: { Authorization: `Bearer ${process.env.MERCADOPAGO_API_KEY}` } }
+        );
+
+        const orderData = orderResponse.data;
+
+        // 3️⃣ Extraer productos de la orden
+        const items = orderData.items.map(item => ({
+          productId: item.id || `SKU_${item.title}`,
           name: item.title,
           price: item.unit_price,
           quantity: item.quantity,
-        })) || [];
+        }));
 
-        // Crear una nueva venta
+        console.log("📌 Productos extraídos:", items);
+
+        // 4️⃣ Guardar en la base de datos
         const nuevaVenta = new Venta({
           transactionId: paymentData.id,
           totalAmount: paymentData.transaction_amount,
           status: paymentData.status,
           fechaVenta: new Date(paymentData.date_approved || Date.now()),
-          items: items,  // Guardamos los productos
+          items, // Productos obtenidos correctamente
         });
 
-        // Guardamos la venta en la base de datos
         await nuevaVenta.save();
         console.log("✅ Venta guardada con éxito en la base de datos");
 
-        // Emitimos un evento para notificar que el pago fue exitoso
         io.emit("paymentSuccess", { status: "approved", paymentId, amount: paymentData.transaction_amount });
       } else {
         console.log("❌ El pago no fue aprobado, no se guarda la venta");
       }
 
-      // Respondemos con un status 200 para confirmar la recepción del webhook
       return res.sendStatus(200);
-
     } catch (error) {
       console.error("❌ Error procesando el webhook:", error);
       return res.status(500).json({ message: "Error al procesar el webhook", error: error.message });
     }
   } else {
-    // Si no es un pago, respondemos con un 200
     return res.sendStatus(200);
   }
 };
