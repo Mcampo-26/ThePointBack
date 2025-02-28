@@ -75,16 +75,49 @@ export const createInteroperableQR = async (req, res) => {
 
 const obtenerDatosPagador = async (payerId) => {
   try {
-    const response = await axios.get(
+    // Intentar obtener información desde la API de Customers
+    const customerResponse = await axios.get(
       `https://api.mercadopago.com/v1/customers/${payerId}`,
       {
         headers: { Authorization: `Bearer ${process.env.MERCADOPAGO_API_KEY}` },
       }
     );
-    return response.data;
+
+    console.log("✅ Datos del pagador obtenidos desde /customers:", customerResponse.data);
+    return {
+      payerId,
+      email: customerResponse.data.email || "No disponible",
+      nombreBilletera: "No disponible", // No se obtiene desde customers
+      metodoPago: "No disponible",
+    };
   } catch (error) {
-    console.error("❌ Error al obtener datos del pagador:", error.response?.data || error.message);
-    return null; // Si hay error, devolvemos null
+    console.warn("⚠️ Cliente no encontrado en /customers, buscando en /payments...");
+
+    // Si no se encuentra en customers, intentamos obtener los datos desde el pago
+    try {
+      const paymentResponse = await axios.get(
+        `https://api.mercadopago.com/v1/payments/${payerId}`, // Aquí pasamos el paymentId
+        {
+          headers: { Authorization: `Bearer ${process.env.MERCADOPAGO_API_KEY}` },
+        }
+      );
+
+      const paymentData = paymentResponse.data;
+
+      const pagador = {
+        payerId: paymentData.payer?.id || "Desconocido",
+        email: paymentData.payer?.email || "No disponible",
+        nombreBilletera:
+          paymentData.point_of_interaction?.transaction_data?.bank_info?.payer?.long_name || "Desconocido",
+        metodoPago: paymentData.payment_method?.id || "Desconocido",
+      };
+
+      console.log("✅ Datos del pagador obtenidos desde /payments:", pagador);
+      return pagador;
+    } catch (error) {
+      console.error("❌ Error al obtener datos del pagador:", error.response?.data || error.message);
+      return null;
+    }
   }
 };
 
@@ -97,24 +130,13 @@ const guardarVentaInterno = async (paymentData) => {
 
     console.log("📌 Guardando venta en la base de datos:", paymentData);
 
-    let pagadorNombre = "Desconocido";
-    let pagadorEmail = "No disponible";
+    // ✅ Obtener el nombre de la billetera utilizada
+    const nombreBilletera = obtenerNombreBilletera(paymentData.payment_method?.id);
 
-    if (paymentData.payer) {
-      pagadorNombre = paymentData.payer.first_name && paymentData.payer.last_name
-        ? `${paymentData.payer.first_name} ${paymentData.payer.last_name}`
-        : "Desconocido";
-
-      pagadorEmail = paymentData.payer.email || "No disponible";
-    }
-
-    // ✅ Si no hay nombre en `payer`, intenta obtenerlo desde `bank_info.payer.long_name`
-    if (pagadorNombre === "Desconocido" && paymentData.point_of_interaction?.transaction_data?.bank_info?.payer?.long_name) {
-      pagadorNombre = paymentData.point_of_interaction.transaction_data.bank_info.payer.long_name;
-    }
+    let pagadorEmail = paymentData.payer?.email || "No disponible";
 
     const nuevaVenta = new Venta({
-      pagador: pagadorNombre,
+      pagador: nombreBilletera, // Aquí guardamos la billetera en lugar del nombre del pagador
       emailPagador: pagadorEmail,
       transactionId: paymentData.id,
       totalAmount: paymentData.transaction_amount,
@@ -135,6 +157,26 @@ const guardarVentaInterno = async (paymentData) => {
     throw error;
   }
 };
+
+// 🔹 Mapeo de billeteras según el método de pago
+const obtenerNombreBilletera = (paymentMethodId) => {
+  const billeteras = {
+    "account_money": "Mercado Pago",
+    "visa": "Visa",
+    "master": "Mastercard",
+    "amex": "American Express",
+    "debvisa": "Visa Débito",
+    "debin_transfer": "Transferencia Bancaria",
+    "wallet_uala": "Ualá",
+    "wallet_naranja": "Naranja X",
+    "wallet_brubank": "Brubank",
+    "wallet_bna": "BNA+",
+    "wallet_modo": "MODO",
+  };
+
+  return billeteras[paymentMethodId] || "Método Desconocido";
+};
+
 
 
 export const receiveWebhook = async (req, res) => {
