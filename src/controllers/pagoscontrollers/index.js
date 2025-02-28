@@ -134,25 +134,40 @@ const guardarVentaInterno = async (paymentData) => {
     const ventaExistente = await Venta.findOne({ transactionId: paymentData.id });
     if (ventaExistente) {
       console.log("⚠️ La venta ya fue registrada anteriormente. No se guardará nuevamente.");
-      return; // No guardamos la misma venta dos veces
+      return;
     }
 
-    // Obtener el nombre de la billetera
-    const nombreBilletera = obtenerNombreBilletera(paymentData.payment_method?.id);
+    console.log("📌 Extrayendo productos...");
 
+    // ✅ Extraer los productos desde el objeto `order` si no vienen en `additional_info.items`
+    let productos = [];
+    if (paymentData.additional_info?.items?.length > 0) {
+      productos = paymentData.additional_info.items.map((item) => ({
+        productId: item.sku_number || "SKU_Desconocido",
+        name: item.title || "Producto sin nombre",
+        price: item.unit_price || 0,
+        quantity: item.quantity || 1,
+      }));
+    } else if (paymentData.order?.items?.length > 0) {
+      productos = paymentData.order.items.map((item) => ({
+        productId: item.sku_number || "SKU_Desconocido",
+        name: item.title || "Producto sin nombre",
+        price: item.unit_price || 0,
+        quantity: item.quantity || 1,
+      }));
+    } else {
+      console.warn("⚠️ No se encontraron productos en `additional_info.items` ni en `order.items`.");
+    }
+
+    console.log("🛒 Productos obtenidos:", productos);
+
+    // ✅ Guardamos la venta con los productos
     const nuevaVenta = new Venta({
-      pagador: nombreBilletera,
-      emailPagador: paymentData.payer?.email || "No disponible",
       transactionId: paymentData.id,
-      totalAmount: paymentData.transaction_amount,
+      totalAmount: paymentData.total_paid_amount || paymentData.transaction_amount || 0,
       status: paymentData.status,
       fechaVenta: new Date(paymentData.date_approved || Date.now()),
-      items: paymentData.additional_info?.items?.map((item) => ({
-        productId: item.sku_number,
-        name: item.title,
-        price: item.unit_price,
-        quantity: item.quantity,
-      })) || [],
+      items: productos, // Ahora sí guardamos los productos correctamente
     });
 
     await nuevaVenta.save();
@@ -163,25 +178,6 @@ const guardarVentaInterno = async (paymentData) => {
   }
 };
 
-
-// 🔹 Mapeo de billeteras según el método de pago
-const obtenerNombreBilletera = (paymentMethodId) => {
-  const billeteras = {
-    "account_money": "Mercado Pago",
-    "visa": "Visa",
-    "master": "Mastercard",
-    "amex": "American Express",
-    "debvisa": "Visa Débito",
-    "debin_transfer": "Transferencia Bancaria",
-    "wallet_uala": "Ualá",
-    "wallet_naranja": "Naranja X",
-    "wallet_brubank": "Brubank",
-    "wallet_bna": "BNA+",
-    "wallet_modo": "MODO",
-  };
-
-  return billeteras[paymentMethodId] || "Método Desconocido";
-};
 
 
 
