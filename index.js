@@ -7,66 +7,67 @@ import routerPagos from './src/Routes/Pagos/index.js';
 import routerProductos from './src/Routes/Productos/index.js';
 import routerVentas from './src/Routes/Ventas/index.js';
 import { dbConnect } from './src/database/config.js';
-import routerVentas from './src/Routes/Ventas/index.js';
 
 const app = express();
 const server = http.createServer(app); // Crear servidor HTTP
+const io = new Server(server, {
+  cors: {
+    origin: ['https://thepoint.netlify.app'],
+    //origin: ['http://localhost:5173'],// ngrok
+    methods: ['GET', 'POST'],
+  },
+});
+
+
+
+
+// Hacer que `io` esté disponible en toda la aplicación
+app.locals.io = io; // Agregar `io` a `app.locals`
+
 const PORT = process.env.PORT || 8080;
 
-// Configuración de CORS para permitir Thunder Client y Postman en desarrollo
-const corsOptions = {
-  origin: [
-    'https://thepoint.netlify.app', // Frontend en producción
-    'http://localhost:5173', // Frontend en local
-    '*' // Permitir cualquier origen (para pruebas en Thunder Client y Postman)
-  ],
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true, // Permitir cookies y autenticación basada en tokens
-};
-
-// Aplicar CORS
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // Manejar preflight OPTIONS
-
-// Middleware para parsear JSON y solicitudes URL-encoded
+// Middleware para parsear JSON
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Middleware para logs en consola
-app.use(morgan('dev'));
+// Configuración de CORS
+app.use(cors({
+  origin: ['https://thepoint.netlify.app'], // Permite solicitudes desde el dominio de tu frontend
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'], // Permite estos encabezados
+  credentials: true, // Permitir envío de cookies o autenticación basada en tokens
+}));
+
+// Middleware para manejar solicitudes preflight (OPTIONS)
+app.options('*', cors());
 
 // Configuración de Socket.io
-const io = new Server(server, {
-  cors: corsOptions
-});
-
-// Hacer que `io` esté disponible en toda la aplicación
-app.locals.io = io;
-
 io.on('connection', (socket) => {
-  console.log('Cliente conectado:', socket.id);
+  console.log('Cliente conectado');
 
   // Puedes enviar eventos desde el backend al frontend
   socket.on('disconnect', () => {
-    console.log('Cliente desconectado:', socket.id);
+    console.log('Cliente desconectado');
   });
 });
+
+app.use(morgan('dev'));
 
 // Montar rutas
 app.use('/Pagos', routerPagos);
 app.use('/Productos', routerProductos);
+app.use('/',routerVentas);
 
 // Iniciar servidor
-server.listen(PORT, () => {
-  console.log(`🚀 Servidor escuchando en el puerto ${PORT}`);
+server.listen(PORT, () => { // Usar server.listen en lugar de app.listen
+  console.log(`Servidor escuchando en el puerto ${PORT}`);
 });
 
 // Conectar a la base de datos
 dbConnect()
   .then(() => {
-    console.log('✅ Conectado a la base de datos');
+    console.log('Estoy listo y conectado a la base de datos');
   })
   .catch(error => {
-    console.error('❌ Error al conectar con la base de datos:', error);
+    console.error('Error al conectar con la base de datos:', error);
   });
