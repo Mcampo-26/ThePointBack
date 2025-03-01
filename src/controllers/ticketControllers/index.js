@@ -1,8 +1,8 @@
-import ticket from "../../models/ticket.js";
+import Ticket from "../../models/Ticket.js";
 // 📌 Obtener configuración del ticket
 export const getTicket = async (req, res) => {
   try {
-    const config = await ticket.findOne();
+    const config = await Ticket.findOne();
     if (!config) {
       return res.status(404).json({ message: "No hay configuración de ticket guardada." });
     }
@@ -14,7 +14,7 @@ export const getTicket = async (req, res) => {
 };
 
 // 📌 Guardar o actualizar configuración del ticket
-export const saveTicket= async (req, res) => {
+export const saveTicket = async (req, res) => {
   try {
     const { width, height, fontSize, textAlign, businessName, date, printTicket } = req.body;
 
@@ -23,7 +23,7 @@ export const saveTicket= async (req, res) => {
       return res.status(400).json({ message: "Faltan datos obligatorios: businessName o date." });
     }
 
-    let config = await ticket.findOne();
+    let config = await Ticket.findOne();
 
     if (config) {
       // Actualizar la configuración existente
@@ -33,11 +33,10 @@ export const saveTicket= async (req, res) => {
       config.textAlign = textAlign;
       config.businessName = businessName;
       config.date = date;
-     
       config.printTicket = printTicket;
     } else {
       // Crear una nueva configuración
-      config = new ticket({ width, height, fontSize, textAlign, businessName, date, printTicket });
+      config = new Ticket({ width, height, fontSize, textAlign, businessName, date, printTicket });
     }
 
     await config.save();
