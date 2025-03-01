@@ -6,7 +6,9 @@ import { Server } from 'socket.io'; // Importar socket.io
 import routerPagos from './src/Routes/Pagos/index.js';
 import routerProductos from './src/Routes/Productos/index.js';
 import routerVentas from './src/Routes/Ventas/index.js';
+import routerTicket from "./src/Routes/Ticket/index.js";
 import { dbConnect } from './src/database/config.js';
+
 
 const app = express();
 const server = http.createServer(app); // Crear servidor HTTP
@@ -57,6 +59,7 @@ app.use(morgan('dev'));
 app.use('/Pagos', routerPagos);
 app.use('/Productos', routerProductos);
 app.use('/',routerVentas);
+app.use('/Ticket',routerTicket);
 
 // Iniciar servidor
 server.listen(PORT, () => { // Usar server.listen en lugar de app.listen

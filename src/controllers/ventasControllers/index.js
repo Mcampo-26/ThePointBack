@@ -1,6 +1,6 @@
 import Venta from "../../models/Ventas.js"; // Importamos el modelo de ventas
 import axios from "axios";
-
+import mongoose from "mongoose"
 // Función para almacenar ventas después de un pago exitoso
 
 // Obtener todas las ventas o filtrar por fecha
@@ -30,7 +30,14 @@ export const getVentas = async (req, res) => {
 // Obtener una venta por ID
 export const getVentaById = async (req, res) => {
   try {
-    const venta = await Venta.findById(req.params.id).populate("items.productId");
+    const { id } = req.params;
+
+    // 📌 Validar que el ID sea un ObjectId válido
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "ID de venta inválido." });
+    }
+
+    const venta = await Venta.findById(id).populate("items.productId");
 
     if (!venta) {
       return res.status(404).json({ message: "Venta no encontrada." });
@@ -38,11 +45,10 @@ export const getVentaById = async (req, res) => {
 
     res.status(200).json(venta);
   } catch (error) {
-    console.error("Error al obtener venta:", error);
+    console.error("❌ Error al obtener venta:", error);
     res.status(500).json({ message: "Error al obtener venta." });
   }
 };
-
 
 export const obtenerVentasMercadoPago = async (req, res) => {
   try {
