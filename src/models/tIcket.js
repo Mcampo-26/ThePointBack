@@ -11,6 +11,6 @@ const ticketSchema = new mongoose.Schema({
   printTicket: { type: Boolean, default: true }, // ✅ Nuevo campo para habilitar/deshabilitar la impresión
 }, { timestamps: true });
 
-const Ticket = mongoose.model("ticket", ticketSchema); // 📌 Nombre en minúsculas
+const Ticket = mongoose.model("Ticket", ticketSchema); // 📌 Nombre en minúsculas
 
 export default Ticket;
