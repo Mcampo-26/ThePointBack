@@ -1,4 +1,4 @@
-import Ticket from "../../models/Ticket.js";
+import Ticket from "../../models/Ticket.js"
 // 📌 Obtener configuración del ticket
 export const getTicket = async (req, res) => {
   try {
