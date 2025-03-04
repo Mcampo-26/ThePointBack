@@ -1,16 +1,21 @@
+
 import mongoose from "mongoose";
 
+
 const ticketSchema = new mongoose.Schema({
-  width: { type: String, required: true },
-  height: { type: String, required: true },
-  fontSize: { type: String, required: true },
+  width: { type: Number, required: true },
+  height: { type: Number, required: true },
+  titleFontSize: { type: Number, required: true },
+  productFontSize: { type: Number, required: true },
+  priceFontSize: { type: Number, required: true },
+  totalFontSize: { type: Number, required: true },
+  footerFontSize: { type: Number, required: true },
+  dateFontSize: { type: Number, required: true },  // ✅ Asegurar que está en el esquema
   textAlign: { type: String, required: true },
   businessName: { type: String, required: true },
   date: { type: String, required: true },
-  
-  printTicket: { type: Boolean, default: true }, // ✅ Nuevo campo para habilitar/deshabilitar la impresión
+  paperSize: { type: String, required: true },
 }, { timestamps: true });
 
-const Ticket = mongoose.model("Ticket", ticketSchema); // 📌 Nombre en minúsculas
-
+const Ticket = mongoose.model("Ticket", ticketSchema);
 export default Ticket;
