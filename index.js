@@ -8,6 +8,7 @@ import routerProductos from './src/Routes/Productos/index.js';
 import routerVentas from './src/Routes/Ventas/index.js';
 import routerTicket from "./src/Routes/Ticket/index.js";
 import { dbConnect } from './src/database/config.js';
+import reportesRoutes from "./src/Routes/Reportes/index.js";
 
 
 const app = express();
@@ -60,6 +61,7 @@ app.use('/Pagos', routerPagos);
 app.use('/Productos', routerProductos);
 app.use('/',routerVentas);
 app.use('/Ticket',routerTicket);
+app.use("/reportes", reportesRoutes);
 
 // Iniciar servidor
 server.listen(PORT, () => { // Usar server.listen en lugar de app.listen
