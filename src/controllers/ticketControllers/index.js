@@ -17,17 +17,16 @@ export const getTicket = async (req, res) => {
 // 📌 Guardar o actualizar configuración del ticket
 export const saveTicket = async (req, res) => {
   try {
-    const { width, height, titleFontSize, productFontSize, priceFontSize, totalFontSize, footerFontSize, dateFontSize, textAlign, businessName, date, paperSize } = req.body;
-
-    // 🔥 Validar que `dateFontSize` y otros valores no estén vacíos
-    if (!dateFontSize || isNaN(dateFontSize)) {
-      return res.status(400).json({ message: "El campo dateFontSize es obligatorio y debe ser un número." });
-    }
+    const {
+      width, height, titleFontSize, productFontSize, priceFontSize, 
+      totalFontSize, footerFontSize, dateFontSize, textAlign, 
+      businessName, paperSize
+    } = req.body;
 
     let config = await Ticket.findOne();
 
     if (config) {
-      // 🔥 Actualizar la configuración existente
+      // 🔥 Actualizar configuración existente
       config.width = width;
       config.height = height;
       config.titleFontSize = titleFontSize;
@@ -35,24 +34,24 @@ export const saveTicket = async (req, res) => {
       config.priceFontSize = priceFontSize;
       config.totalFontSize = totalFontSize;
       config.footerFontSize = footerFontSize;
-      config.dateFontSize = dateFontSize;  // ✅ Agregar aquí
+      config.dateFontSize = dateFontSize;
       config.textAlign = textAlign;
       config.businessName = businessName;
-      config.date = date;
       config.paperSize = paperSize;
+      await config.save();
     } else {
-      // 🔥 Crear una nueva configuración
+      // 🔥 Crear una nueva configuración si no existe
       config = new Ticket({
-        width, height, titleFontSize, productFontSize, priceFontSize, totalFontSize,
-        footerFontSize, dateFontSize, textAlign, businessName, date, paperSize
+        width, height, titleFontSize, productFontSize, priceFontSize, 
+        totalFontSize, footerFontSize, dateFontSize, textAlign, 
+        businessName, paperSize
       });
+      await config.save();
     }
 
-    await config.save();
     res.status(201).json({ message: "Configuración guardada correctamente", config });
   } catch (error) {
     console.error("❌ Error al guardar la configuración del ticket:", error);
     res.status(500).json({ message: "Error al guardar la configuración del ticket." });
   }
 };
-
